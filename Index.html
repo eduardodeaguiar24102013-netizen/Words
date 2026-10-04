@@ -1,0 +1,823 @@
+html
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Termo Multiplayer Local</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #121213;
+      color: #ffffff;
+      touch-action: manipulation;
+    }
+
+    /* Animação do Flip (Revelação da letra) */
+    .tile {
+      perspective: 1000px;
+      transition: transform 0.15s ease-in-out;
+    }
+
+    .tile-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+    }
+
+    .tile.flip .tile-inner {
+      transform: rotateX(180deg);
+    }
+
+    .tile-front, .tile-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      border-radius: 0.375rem;
+    }
+
+    .tile-front {
+      border: 2px solid #3a3a3c;
+      background-color: transparent;
+      color: white;
+    }
+
+    .tile-back {
+      transform: rotateX(180deg);
+      border: 2px solid transparent;
+    }
+
+    .tile.pop {
+      animation: pop 0.1s ease-in-out;
+    }
+
+    @keyframes pop {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+
+    .shake {
+      animation: shake 0.5s;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-5px); }
+      40%, 80% { transform: translateX(5px); }
+    }
+
+    /* Cores do Termo */
+    .correct { background-color: #538d4e !important; color: white !important; border-color: #538d4e !important; }
+    .present { background-color: #b59f3b !important; color: white !important; border-color: #b59f3b !important; }
+    .absent { background-color: #3a3a3c !important; color: white !important; border-color: #3a3a3c !important; }
+
+    /* Key colors */
+    .key-correct { background-color: #538d4e !important; color: white !important; }
+    .key-present { background-color: #b59f3b !important; color: white !important; }
+    .key-absent { background-color: #262626 !important; color: #6b7280 !important; }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #121213;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3a3a3c;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between items-center p-2 sm:p-4 select-none">
+
+  <!-- Top Navigation / Header -->
+  <header class="w-full max-w-lg flex justify-between items-center border-b border-zinc-800 pb-3 mb-2">
+    <div class="flex items-center space-x-2">
+      <span class="text-2xl sm:text-3xl font-black tracking-wider bg-gradient-to-r from-green-500 to-yellow-500 bg-clip-text text-transparent">TERMO</span>
+      <span class="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full font-semibold">DUEL</span>
+    </div>
+    
+    <div id="header-actions" class="hidden flex items-center gap-2">
+      <button onclick="showScreen('menu-screen')" class="text-zinc-400 hover:text-white p-2 rounded-lg bg-zinc-800/60 hover:bg-zinc-800 transition">
+        <i class="fa-solid fa-house"></i>
+      </button>
+      <button onclick="openModal('account-modal')" class="text-zinc-400 hover:text-white p-2 rounded-lg bg-zinc-800/60 hover:bg-zinc-800 transition">
+        <i class="fa-solid fa-trophy"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Container principal -->
+  <main class="w-full max-w-lg flex-1 flex flex-col items-center justify-center relative">
+
+    <!-- TELA 1: CADASTRAR JOGADORES -->
+    <div id="setup-screen" class="w-full flex flex-col items-center justify-center space-y-6 animate-fade-in my-auto">
+      <div class="text-center space-y-2">
+        <h1 class="text-2xl sm:text-3xl font-extrabold">Boas-vindas ao Termo Duel!</h1>
+        <p class="text-zinc-400 text-sm">Insira o nome dos dois jogadores para iniciar o desafio multiplayer.</p>
+      </div>
+
+      <form id="setup-form" onsubmit="savePlayers(event)" class="w-full space-y-4 bg-zinc-900/80 p-6 rounded-2xl border border-zinc-800/80 shadow-xl">
+        <div>
+          <label class="block text-xs font-bold text-green-400 uppercase tracking-wider mb-2">
+            <i class="fa-solid fa-user-ninja mr-1"></i> Jogador 1
+          </label>
+          <input type="text" id="player1-input" required maxlength="12" placeholder="Digite o nome..." 
+            class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500 transition font-medium">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-yellow-400 uppercase tracking-wider mb-2">
+            <i class="fa-solid fa-user-astronaut mr-1"></i> Jogador 2
+          </label>
+          <input type="text" id="player2-input" required maxlength="12" placeholder="Digite o nome..." 
+            class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-500 transition font-medium">
+        </div>
+
+        <button type="submit" class="w-full py-3.5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2">
+          <span>Continuar</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </form>
+    </div>
+
+    <!-- TELA 2: MENU PRINCIPAL -->
+    <div id="menu-screen" class="hidden w-full flex flex-col items-center justify-center space-y-6 my-auto">
+      
+      <!-- Placar do Menu -->
+      <div class="w-full bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 flex justify-between items-center shadow-lg">
+        <div class="flex flex-col items-start">
+          <span class="text-xs text-zinc-400 font-semibold uppercase">Jogador 1</span>
+          <span id="p1-menu-name" class="font-extrabold text-green-400 text-lg sm:text-xl truncate max-w-[120px]">P1</span>
+          <span id="p1-menu-score" class="text-xs bg-zinc-800 px-2.5 py-1 rounded-md mt-1 font-bold">0 pts</span>
+        </div>
+        <div class="text-xl font-black text-zinc-600">VS</div>
+        <div class="flex flex-col items-end">
+          <span class="text-xs text-zinc-400 font-semibold uppercase">Jogador 2</span>
+          <span id="p2-menu-name" class="font-extrabold text-yellow-400 text-lg sm:text-xl truncate max-w-[120px]">P2</span>
+          <span id="p2-menu-score" class="text-xs bg-zinc-800 px-2.5 py-1 rounded-md mt-1 font-bold">0 pts</span>
+        </div>
+      </div>
+
+      <!-- Menu Options -->
+      <div class="w-full space-y-3">
+        <button onclick="startNewGame()" class="w-full py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-black text-lg rounded-xl shadow-lg transition transform active:scale-98 flex items-center justify-center gap-3">
+          <i class="fa-solid fa-play"></i>
+          <span>START (JOGAR)</span>
+        </button>
+
+        <button onclick="openModal('account-modal')" class="w-full py-3.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold rounded-xl transition flex items-center justify-center gap-3 border border-zinc-700">
+          <i class="fa-solid fa-user-gear"></i>
+          <span>Account & Placares</span>
+        </button>
+
+        <button onclick="openModal('config-modal')" class="w-full py-3.5 bg-zinc-900 text-zinc-500 font-bold rounded-xl cursor-pointer hover:bg-zinc-800/80 transition flex items-center justify-center gap-3 border border-zinc-800">
+          <i class="fa-solid fa-gear"></i>
+          <span>Config (Opções)</span>
+        </button>
+      </div>
+
+      <button onclick="changePlayers()" class="text-xs text-zinc-500 hover:text-zinc-300 underline mt-4 transition">
+        Trocar nomes de jogadores
+      </button>
+    </div>
+
+    <!-- TELA 3: ESCOLHA DA PALAVRA SECRETA -->
+    <div id="word-input-screen" class="hidden w-full flex flex-col items-center justify-center space-y-5 my-auto">
+      <div class="text-center space-y-1">
+        <span class="text-xs font-bold text-green-400 uppercase tracking-widest">A Vez De</span>
+        <h2 id="chooser-name" class="text-2xl sm:text-3xl font-black text-white">Nome do Jogador</h2>
+        <p id="guesser-target" class="text-xs text-zinc-400">Escolha uma palavra secreta para seu oponente adivinhar.</p>
+      </div>
+
+      <form id="word-form" onsubmit="confirmSecretWord(event)" class="w-full bg-zinc-900/90 p-5 rounded-2xl border border-zinc-800 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-zinc-400 mb-1">Palavra Secreta (3 a 9 letras)</label>
+          <div class="relative">
+            <input type="password" id="secret-word-input" required minlength="3" maxlength="9" placeholder="Ex: TERMO"
+              autocomplete="off" autocorrect="off" spellcheck="false"
+              class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 pr-12 text-white uppercase font-bold tracking-widest text-lg focus:outline-none focus:border-green-500 transition">
+            <button type="button" onclick="toggleWordVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white p-2">
+              <i id="eye-icon" class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+          <p class="text-[11px] text-zinc-500 mt-1">Apenas letras sem acentos, de 3 até 9 caracteres.</p>
+        </div>
+
+        <button type="submit" class="w-full py-3.5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-lock"></i>
+          <span>Confirmar Palavra</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- TELA 4: TELA DO JOGO (TERMO GRID) -->
+    <div id="game-screen" class="hidden w-full flex flex-col items-center justify-between h-full py-2">
+      
+      <!-- Top Bar do Jogo -->
+      <div class="w-full flex justify-between items-center bg-zinc-900/60 px-3 py-2 rounded-xl border border-zinc-800/60 mb-2">
+        <div class="text-left">
+          <div id="p1-game-info" class="text-xs font-bold text-zinc-300">P1: 0</div>
+          <div id="p2-game-info" class="text-xs font-bold text-zinc-300">P2: 0</div>
+        </div>
+        <div class="text-right">
+          <div class="text-[10px] text-zinc-400 uppercase font-semibold">Tentando Adivinhar</div>
+          <div id="current-guesser-name" class="text-xs font-black text-green-400">Jogador</div>
+        </div>
+      </div>
+
+      <!-- Grid de Letras -->
+      <div id="grid-container" class="w-full my-auto flex justify-center items-center overflow-x-auto py-2">
+        <div id="board-grid" class="grid gap-1.5 sm:gap-2 justify-center"></div>
+      </div>
+
+      <!-- Teclado Virtual -->
+      <div id="keyboard" class="w-full max-w-md space-y-1 sm:space-y-1.5 mt-auto pt-2">
+        <!-- Linhas do Teclado geradas pelo JS -->
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL: RESULTADO DA RODADA (VITÓRIA / DERROTA) -->
+  <div id="result-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full text-center space-y-4 shadow-2xl animate-pop">
+      <div id="result-icon-container" class="w-16 h-16 rounded-full flex items-center justify-center mx-auto text-3xl">
+        <i id="result-icon" class="fa-solid fa-trophy"></i>
+      </div>
+
+      <div>
+        <h3 id="result-title" class="text-2xl font-black">Vitória!</h3>
+        <p id="result-message" class="text-sm text-zinc-400 mt-1">Acertou a palavra secreta!</p>
+      </div>
+
+      <div class="bg-zinc-800/80 p-3 rounded-xl border border-zinc-700/50">
+        <span class="text-xs text-zinc-400 uppercase block font-semibold mb-1">A Palavra era</span>
+        <span id="revealed-word" class="text-xl font-black tracking-widest text-green-400">TERMO</span>
+      </div>
+
+      <div class="pt-2 space-y-2">
+        <button onclick="nextRound()" class="w-full py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition active:scale-95">
+          Próxima Rodada (Inverter Papéis)
+        </button>
+        <button onclick="closeModal('result-modal'); showScreen('menu-screen');" class="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold rounded-xl text-xs transition">
+          Menu Principal
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ACCOUNT & PLACARES -->
+  <div id="account-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
+        <h3 class="text-lg font-extrabold flex items-center gap-2">
+          <i class="fa-solid fa-address-card text-yellow-500"></i> Account & Placares
+        </h3>
+        <button onclick="closeModal('account-modal')" class="text-zinc-500 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div class="bg-zinc-800/60 p-3 rounded-xl border border-zinc-700/50 flex justify-between items-center">
+          <div>
+            <div id="acc-p1-name" class="font-bold text-green-400 text-sm">Player 1</div>
+            <div class="text-[11px] text-zinc-400">Pontuação Total</div>
+          </div>
+          <div id="acc-p1-score" class="text-2xl font-black text-white">0</div>
+        </div>
+
+        <div class="bg-zinc-800/60 p-3 rounded-xl border border-zinc-700/50 flex justify-between items-center">
+          <div>
+            <div id="acc-p2-name" class="font-bold text-yellow-400 text-sm">Player 2</div>
+            <div class="text-[11px] text-zinc-400">Pontuação Total</div>
+          </div>
+          <div id="acc-p2-score" class="text-2xl font-black text-white">0</div>
+        </div>
+      </div>
+
+      <div class="pt-2 flex flex-col gap-2">
+        <button onclick="resetScores()" class="w-full py-2.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold rounded-xl transition">
+          <i class="fa-solid fa-rotate-right mr-1"></i> Zerar Placar
+        </button>
+        <button onclick="closeModal('account-modal')" class="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold rounded-xl transition">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIGURAÇÕES -->
+  <div id="config-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
+        <h3 class="text-lg font-extrabold flex items-center gap-2">
+          <i class="fa-solid fa-gear text-zinc-400"></i> Configurações
+        </h3>
+        <button onclick="closeModal('config-modal')" class="text-zinc-500 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div class="flex items-center justify-between p-3 bg-zinc-800/40 rounded-xl">
+          <span class="text-sm font-medium text-zinc-300">Vibração / Feedback</span>
+          <span class="text-xs bg-zinc-700 text-zinc-300 px-2 py-1 rounded font-mono">Ativo</span>
+        </div>
+        <div class="flex items-center justify-between p-3 bg-zinc-800/40 rounded-xl">
+          <span class="text-sm font-medium text-zinc-300">Modo de Jogo</span>
+          <span class="text-xs bg-green-900/60 text-green-400 px-2 py-1 rounded font-mono">2P Local</span>
+        </div>
+        <div class="flex items-center justify-between p-3 bg-zinc-800/40 rounded-xl">
+          <span class="text-sm font-medium text-zinc-300">Tentativas Máximas</span>
+          <span class="text-xs bg-zinc-700 text-zinc-300 px-2 py-1 rounded font-mono">6 Tentativas</span>
+        </div>
+      </div>
+
+      <button onclick="closeModal('config-modal')" class="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold rounded-xl transition">
+        Fechar
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed top-12 left-1/2 -translate-x-1/2 bg-white text-zinc-900 font-bold px-4 py-2 rounded-full shadow-2xl transition opacity-0 pointer-events-none z-50 text-xs sm:text-sm">
+    Mensagem
+  </div>
+
+  <script>
+    /* Estado do Jogo */
+    let player1 = { name: 'Player 1', score: 0 };
+    let player2 = { name: 'Player 2', score: 0 };
+    let currentChooser = 1; // 1 ou 2
+    let secretWord = '';
+    let wordLength = 5;
+    let maxAttempts = 6;
+    let currentAttempt = 0;
+    let currentGuess = '';
+    let isGameOver = false;
+    let keyStates = {}; // 'correct', 'present', 'absent'
+
+    const KEYBOARD_LAYOUT = [
+      ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+      ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'Ç'],
+      ['ENTER', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', 'BACKSPACE']
+    ];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      renderKeyboard();
+      setupPhysicalKeyboard();
+
+      // Verifica se já existem jogadores salvos
+      if (player1.name && player2.name && player1.name !== 'Player 1') {
+        showScreen('menu-screen');
+      } else {
+        showScreen('setup-screen');
+      }
+    });
+
+    function loadState() {
+      const p1 = localStorage.getItem('termo_p1');
+      const p2 = localStorage.getItem('termo_p2');
+
+      if (p1) player1 = JSON.parse(p1);
+      if (p2) player2 = JSON.parse(p2);
+
+      updateUIInfo();
+    }
+
+    function savePlayers(e) {
+      e.preventDefault();
+      const p1Val = document.getElementById('player1-input').value.trim();
+      const p2Val = document.getElementById('player2-input').value.trim();
+
+      if (p1Val && p2Val) {
+        player1.name = p1Val;
+        player2.name = p2Val;
+
+        localStorage.setItem('termo_p1', JSON.stringify(player1));
+        localStorage.setItem('termo_p2', JSON.stringify(player2));
+
+        updateUIInfo();
+        showScreen('menu-screen');
+        showToast('Jogadores cadastrados com sucesso!');
+      }
+    }
+
+    function changePlayers() {
+      document.getElementById('player1-input').value = player1.name;
+      document.getElementById('player2-input').value = player2.name;
+      showScreen('setup-screen');
+    }
+
+    function updateUIInfo() {
+      document.getElementById('p1-menu-name').textContent = player1.name;
+      document.getElementById('p1-menu-score').textContent = `${player1.score} pts`;
+      document.getElementById('p2-menu-name').textContent = player2.name;
+      document.getElementById('p2-menu-score').textContent = `${player2.score} pts`;
+
+      document.getElementById('acc-p1-name').textContent = player1.name;
+      document.getElementById('acc-p1-score').textContent = player1.score;
+      document.getElementById('acc-p2-name').textContent = player2.name;
+      document.getElementById('acc-p2-score').textContent = player2.score;
+
+      document.getElementById('p1-game-info').textContent = `${player1.name}: ${player1.score} pts`;
+      document.getElementById('p2-game-info').textContent = `${player2.name}: ${player2.score} pts`;
+    }
+
+    function showScreen(screenId) {
+      const screens = ['setup-screen', 'menu-screen', 'word-input-screen', 'game-screen'];
+      screens.forEach(id => {
+        const el = document.getElementById(id);
+        if (id === screenId) {
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      });
+
+      const headerActions = document.getElementById('header-actions');
+      if (screenId === 'setup-screen') {
+        headerActions.classList.add('hidden');
+      } else {
+        headerActions.classList.remove('hidden');
+      }
+    }
+
+    function startNewGame() {
+      showScreen('word-input-screen');
+      const chooserName = currentChooser === 1 ? player1.name : player2.name;
+      const guesserName = currentChooser === 1 ? player2.name : player1.name;
+
+      document.getElementById('chooser-name').textContent = chooserName;
+      document.getElementById('guesser-target').textContent = `${chooserName}, crie uma palavra para ${guesserName} tentar adivinhar!`;
+      
+      const input = document.getElementById('secret-word-input');
+      input.value = '';
+      input.type = 'password';
+      document.getElementById('eye-icon').className = 'fa-solid fa-eye';
+      input.focus();
+    }
+
+    function toggleWordVisibility() {
+      const input = document.getElementById('secret-word-input');
+      const icon = document.getElementById('eye-icon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-solid fa-eye';
+      }
+    }
+
+    function confirmSecretWord(e) {
+      e.preventDefault();
+      const input = document.getElementById('secret-word-input');
+      let word = input.value.trim().toUpperCase();
+
+      // Normaliza para remover acentos
+      word = word.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+      if (!/^[A-ZÇ]{3,9}$/.test(word)) {
+        showToast('A palavra deve ter de 3 a 9 letras sem números!');
+        return;
+      }
+
+      secretWord = word;
+      wordLength = secretWord.length;
+      setupBoardGrid();
+      
+      const guesserName = currentChooser === 1 ? player2.name : player1.name;
+      document.getElementById('current-guesser-name').textContent = guesserName;
+
+      // Reseta estado da partida
+      currentAttempt = 0;
+      currentGuess = '';
+      isGameOver = false;
+      keyStates = {};
+      resetKeyboardUI();
+
+      showScreen('game-screen');
+      showToast(`Vez de ${guesserName} adivinhar!`);
+    }
+
+    function setupBoardGrid() {
+      const grid = document.getElementById('board-grid');
+      grid.innerHTML = '';
+      grid.style.gridTemplateColumns = `repeat(${wordLength}, minmax(0, 1fr))`;
+
+      // Tamanho dinâmico das células baseadas no número de letras
+      let tileSizeClass = 'w-10 h-10 text-lg sm:w-12 sm:h-12 sm:text-xl';
+      if (wordLength > 7) {
+        tileSizeClass = 'w-8 h-8 text-base sm:w-10 sm:h-10 sm:text-lg';
+      } else if (wordLength > 5) {
+        tileSizeClass = 'w-9 h-9 text-lg sm:w-11 sm:h-11 sm:text-xl';
+      }
+
+      for (let r = 0; r < maxAttempts; r++) {
+        for (let c = 0; c < wordLength; c++) {
+          const tile = document.createElement('div');
+          tile.className = `tile ${tileSizeClass}`;
+          tile.id = `tile-${r}-${c}`;
+
+          tile.innerHTML = `
+            <div class="tile-inner">
+              <div class="tile-front"></div>
+              <div class="tile-back"></div>
+            </div>
+          `;
+
+          grid.appendChild(tile);
+        }
+      }
+    }
+
+    function renderKeyboard() {
+      const keyboardContainer = document.getElementById('keyboard');
+      keyboardContainer.innerHTML = '';
+
+      KEYBOARD_LAYOUT.forEach(row => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'flex justify-center gap-1 sm:gap-1.5 w-full';
+
+        row.forEach(key => {
+          const btn = document.createElement('button');
+          btn.dataset.key = key;
+
+          let displayKey = key;
+          let flexClass = 'flex-1 max-w-[40px]';
+
+          if (key === 'ENTER') {
+            displayKey = 'ENT';
+            flexClass = 'flex-[1.5] text-xs';
+          } else if (key === 'BACKSPACE') {
+            displayKey = '<i class="fa-solid fa-backspace"></i>';
+            flexClass = 'flex-[1.5]';
+          }
+
+          btn.className = `${flexClass} h-11 sm:h-12 bg-zinc-700/80 hover:bg-zinc-600 active:bg-zinc-500 rounded-md font-bold text-xs sm:text-sm flex items-center justify-center transition uppercase`;
+          btn.innerHTML = displayKey;
+          btn.onclick = () => handleKeyPress(key);
+
+          rowDiv.appendChild(btn);
+        });
+
+        keyboardContainer.appendChild(rowDiv);
+      });
+    }
+
+    function setupPhysicalKeyboard() {
+      document.addEventListener('keydown', (e) => {
+        const gameScreen = document.getElementById('game-screen');
+        if (gameScreen.classList.contains('hidden') || isGameOver) return;
+
+        const key = e.key.toUpperCase();
+
+        if (key === 'ENTER') {
+          handleKeyPress('ENTER');
+        } else if (key === 'BACKSPACE') {
+          handleKeyPress('BACKSPACE');
+        } else if (/^[A-ZÇ]$/.test(key)) {
+          handleKeyPress(key);
+        }
+      });
+    }
+
+    function handleKeyPress(key) {
+      if (isGameOver) return;
+
+      if (key === 'BACKSPACE') {
+        if (currentGuess.length > 0) {
+          currentGuess = currentGuess.slice(0, -1);
+          updateCurrentRow();
+        }
+      } else if (key === 'ENTER') {
+        if (currentGuess.length === wordLength) {
+          submitGuess();
+        } else {
+          showToast(`A palavra deve ter ${wordLength} letras!`);
+          shakeRow(currentAttempt);
+        }
+      } else {
+        if (currentGuess.length < wordLength) {
+          currentGuess += key;
+          updateCurrentRow();
+        }
+      }
+    }
+
+    function updateCurrentRow() {
+      for (let c = 0; c < wordLength; c++) {
+        const tile = document.getElementById(`tile-${currentAttempt}-${c}`);
+        const front = tile.querySelector('.tile-front');
+        const letter = currentGuess[c] || '';
+
+        if (front.textContent !== letter) {
+          front.textContent = letter;
+          if (letter) {
+            tile.classList.add('pop');
+            setTimeout(() => tile.classList.remove('pop'), 100);
+          }
+        }
+      }
+    }
+
+    function shakeRow(rowIdx) {
+      for (let c = 0; c < wordLength; c++) {
+        const tile = document.getElementById(`tile-${rowIdx}-${c}`);
+        tile.classList.add('shake');
+        setTimeout(() => tile.classList.remove('shake'), 500);
+      }
+    }
+
+    function submitGuess() {
+      const guess = currentGuess;
+      const secretArr = secretWord.split('');
+      const guessArr = guess.split('');
+      const tileStatuses = Array(wordLength).fill('absent');
+
+      // 1ª Passagem: Marcar acertos exatos (Verde)
+      for (let i = 0; i < wordLength; i++) {
+        if (guessArr[i] === secretArr[i]) {
+          tileStatuses[i] = 'correct';
+          secretArr[i] = null; // Usado
+        }
+      }
+
+      // 2ª Passagem: Marcar letras na posição errada (Amarelo)
+      for (let i = 0; i < wordLength; i++) {
+        if (tileStatuses[i] !== 'correct') {
+          const indexInSecret = secretArr.indexOf(guessArr[i]);
+          if (indexInSecret !== -1) {
+            tileStatuses[i] = 'present';
+            secretArr[indexInSecret] = null; // Usado
+          }
+        }
+      }
+
+      // Animação de revelação letra por letra
+      isGameOver = true; // Bloqueia digitação temporária durante animação
+      
+      guessArr.forEach((letter, c) => {
+        setTimeout(() => {
+          const tile = document.getElementById(`tile-${currentAttempt}-${c}`);
+          const back = tile.querySelector('.tile-back');
+          const status = tileStatuses[c];
+
+          back.textContent = letter;
+          back.classList.add(status);
+          tile.classList.add('flip');
+
+          // Atualizar Teclado
+          updateKeyStatus(letter, status);
+
+          // Ao finalizar a animação do último tile
+          if (c === wordLength - 1) {
+            setTimeout(() => {
+              checkGameEnd(guess);
+            }, 500);
+          }
+        }, c * 250);
+      });
+    }
+
+    function updateKeyStatus(letter, status) {
+      const keyBtn = document.querySelector(`button[data-key="${letter}"]`);
+      if (!keyBtn) return;
+
+      const currentStatus = keyStates[letter];
+
+      if (status === 'correct') {
+        keyStates[letter] = 'correct';
+      } else if (status === 'present' && currentStatus !== 'correct') {
+        keyStates[letter] = 'present';
+      } else if (status === 'absent' && !currentStatus) {
+        keyStates[letter] = 'absent';
+      }
+
+      // Atualiza visual no DOM
+      const finalStatus = keyStates[letter];
+      keyBtn.classList.remove('key-correct', 'key-present', 'key-absent');
+      if (finalStatus === 'correct') keyBtn.classList.add('key-correct');
+      else if (finalStatus === 'present') keyBtn.classList.add('key-present');
+      else if (finalStatus === 'absent') keyBtn.classList.add('key-absent');
+    }
+
+    function resetKeyboardUI() {
+      document.querySelectorAll('#keyboard button').forEach(btn => {
+        btn.classList.remove('key-correct', 'key-present', 'key-absent');
+      });
+    }
+
+    function checkGameEnd(guess) {
+      const guesserIndex = currentChooser === 1 ? 2 : 1;
+      const guesserName = guesserIndex === 1 ? player1.name : player2.name;
+
+      if (guess === secretWord) {
+        // Adivinhou! Ganha 1 Ponto
+        if (guesserIndex === 1) {
+          player1.score += 1;
+          localStorage.setItem('termo_p1', JSON.stringify(player1));
+        } else {
+          player2.score += 1;
+          localStorage.setItem('termo_p2', JSON.stringify(player2));
+        }
+
+        updateUIInfo();
+        showResultModal(true, guesserName);
+      } else {
+        currentAttempt++;
+        currentGuess = '';
+
+        if (currentAttempt >= maxAttempts) {
+          // Derrota!
+          showResultModal(false, guesserName);
+        } else {
+          isGameOver = false; // Continua a jogar
+        }
+      }
+    }
+
+    function showResultModal(isWin, guesserName) {
+      const modal = document.getElementById('result-modal');
+      const iconContainer = document.getElementById('result-icon-container');
+      const icon = document.getElementById('result-icon');
+      const title = document.getElementById('result-title');
+      const msg = document.getElementById('result-message');
+      const revWord = document.getElementById('revealed-word');
+
+      revWord.textContent = secretWord;
+
+      if (isWin) {
+        iconContainer.className = 'w-16 h-16 rounded-full flex items-center justify-center mx-auto text-3xl bg-green-500/20 text-green-400 border border-green-500/40';
+        icon.className = 'fa-solid fa-trophy';
+        title.textContent = 'Parabéns!';
+        title.className = 'text-2xl font-black text-green-400';
+        msg.textContent = `${guesserName} acertou a palavra e ganhou 1 ponto!`;
+      } else {
+        iconContainer.className = 'w-16 h-16 rounded-full flex items-center justify-center mx-auto text-3xl bg-red-500/20 text-red-400 border border-red-500/40';
+        icon.className = 'fa-solid fa-face-frown';
+        title.textContent = 'Que pena!';
+        title.className = 'text-2xl font-black text-red-400';
+        msg.textContent = `${guesserName} não conseguiu adivinhar no limite de tentativas.`;
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function nextRound() {
+      closeModal('result-modal');
+      // Inverte os papéis
+      currentChooser = currentChooser === 1 ? 2 : 1;
+      startNewGame();
+    }
+
+    function resetScores() {
+      player1.score = 0;
+      player2.score = 0;
+      localStorage.setItem('termo_p1', JSON.stringify(player1));
+      localStorage.setItem('termo_p2', JSON.stringify(player2));
+      updateUIInfo();
+      showToast('Placar resetado com sucesso!');
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.remove('opacity-0');
+      toast.classList.add('opacity-100');
+
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0');
+      }, 2500);
+    }
+  </script>
+</body>
+</html>
