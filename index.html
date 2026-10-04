@@ -2,643 +2,309 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Words</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jogo de Adivinhação</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800;900&display=swap');
+    /* Estilos das letras */
+    .correct { background-color: #538d4e !important; color: white !important; border-color: #538d4e !important; }
+    .present { background-color: #b59f3b !important; color: white !important; border-color: #b59f3b !important; }
+    .absent { background-color: #3a3a3c !important; color: white !important; border-color: #3a3a3c !important; }
 
-    body {
-      font-family: 'Poppins', sans-serif;
-      background-color: #121213;
-      color: #ffffff;
-      touch-action: manipulation;
-      user-select: none;
-      -webkit-user-select: none;
-      overflow: hidden;
+    /* Grid responsivo */
+    #board-grid {
+      display: grid;
+      gap: 6px;
+      justify-content: center;
+      align-content: center;
+      margin: 0 auto;
     }
 
-    /* Quadradinhos no estilo Termo / Wordle */
-    .word-tile {
-      border: 2px solid #3a3a3c;
-      font-size: clamp(1.4rem, 5vw, 2.2rem);
+    .tile {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-sizing: border-box;
+    }
+
+    .tile-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .tile-front, .tile-back {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
       font-weight: 800;
       text-transform: uppercase;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
-      background-color: #121213;
-      border-radius: 6px;
+      user-select: none;
+      transition: all 0.2s ease;
     }
 
-    .word-tile[data-state="active"] {
-      border-color: #565758;
-      animation: pop 0.1s ease-in-out;
+    /* Borda ativa da célula atual */
+    .tile-active {
+      border-color: #818cf8 !important;
+      box-shadow: 0 0 10px rgba(129, 140, 248, 0.5);
     }
 
-    .word-tile[data-state="correct"] {
-      background-color: #538d4e !important;
-      border-color: #538d4e !important;
-      color: #ffffff;
-    }
-
-    .word-tile[data-state="present"] {
-      background-color: #b59f3b !important;
-      border-color: #b59f3b !important;
-      color: #ffffff;
-    }
-
-    .word-tile[data-state="absent"] {
-      background-color: #3a3a3c !important;
-      border-color: #3a3a3c !important;
-      color: #ffffff;
-    }
-
-    /* Animações */
-    @keyframes pop {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.08); }
-      100% { transform: scale(1); }
-    }
-
-    .flip-tile {
-      animation: flip 0.5s ease forwards;
-    }
-
-    @keyframes flip {
-      0% { transform: rotateX(0deg); }
-      50% { transform: rotateX(90deg); }
-      100% { transform: rotateX(0deg); }
-    }
-
-    .shake {
-      animation: shake 0.4s ease-in-out;
-    }
-
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      20%, 60% { transform: translateX(-6px); }
-      40%, 80% { transform: translateX(6px); }
-    }
-
-    /* Input Invisível para Acionar o Teclado Nativo */
-    #hiddenInput {
+    /* Input invisível para acionar o teclado no mobile */
+    #native-keyboard-input {
       position: absolute;
       opacity: 0;
-      top: -1000px;
-      left: -1000px;
-      width: 1px;
-      height: 1px;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      cursor: pointer;
+    }
+
+    .animate-pop {
+      animation: modalPop 0.15s ease-in-out;
+    }
+
+    @keyframes modalPop {
+      0% { transform: scale(0.8); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
     }
   </style>
 </head>
-<body class="h-screen w-screen flex flex-col justify-between items-center bg-[#121213] antialiased overflow-hidden select-none">
+<body class="bg-zinc-950 text-white h-screen overflow-hidden flex flex-col justify-between">
 
-  <!-- Campo oculto para o teclado nativo em dispositivos móveis -->
-  <input type="text" id="hiddenInput" autocomplete="off" spellcheck="false" auto-capitalize="characters">
-
-  <!-- CABEÇALHO -->
-  <header class="w-full max-w-md px-4 py-3 border-b border-[#27272a] flex items-center justify-between shrink-0">
-    <div class="flex items-center gap-2">
-      <h1 class="text-2xl font-black tracking-wider text-green-500">WORDS</h1>
-    </div>
-    <div class="flex items-center gap-2">
-      <button id="btnSound" class="p-2 text-zinc-400 hover:text-white transition">
-        <svg id="iconSoundOn" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z"/></svg>
-        <svg id="iconSoundOff" class="w-6 h-6 hidden text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
-      </button>
-      <button id="btnHome" class="p-2 text-zinc-400 hover:text-white transition hidden">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 00-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 00-1 1m-6 0h6"/></svg>
-      </button>
-    </div>
-  </header>
-
-  <!-- PAINEL CENTRAL DE CONTEÚDO -->
-  <main class="flex-1 w-full max-w-md flex flex-col justify-center items-center px-4 py-2 overflow-hidden relative">
-
-    <!-- SETUP DE JOGADORES -->
-    <div id="screenPlayers" class="w-full flex flex-col gap-5 bg-[#18181b] p-6 rounded-2xl border border-zinc-800 shadow-2xl">
-      <div class="text-center">
-        <h2 class="text-xl font-bold text-white">Jogadores</h2>
-        <p class="text-xs text-zinc-400 mt-1">Digite o nome dos competidores para começar</p>
-      </div>
-
-      <div class="space-y-4">
-        <div>
-          <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Jogador 1</label>
-          <input type="text" id="inputP1" placeholder="Nome do Player 1" maxlength="12" class="w-full bg-[#121213] border border-zinc-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 font-medium">
+  <main class="w-full h-full max-w-md mx-auto p-3 flex flex-col justify-between items-center relative">
+    
+    <!-- TELA GAMEPLAY GRID -->
+    <div id="game-screen" class="w-full h-full flex flex-col justify-between items-center py-2 relative" onclick="focusNativeKeyboard()">
+      
+      <!-- Top Info Bar -->
+      <div class="w-full shrink-0 flex justify-between items-center bg-zinc-900/90 px-4 py-2.5 rounded-xl border border-zinc-800 mb-2 shadow-md z-20">
+        <div class="flex flex-col items-start gap-0.5">
+          <div id="p1-game-info" class="text-xs font-bold text-zinc-300">P1: 0 pts</div>
+          <div id="p2-game-info" class="text-xs font-bold text-zinc-300">P2: 0 pts</div>
         </div>
-        <div>
-          <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Jogador 2</label>
-          <input type="text" id="inputP2" placeholder="Nome do Player 2" maxlength="12" class="w-full bg-[#121213] border border-zinc-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 font-medium">
+
+        <div class="text-right">
+          <span class="text-[10px] text-zinc-400 uppercase font-semibold block">Tentando Adivinhar</span>
+          <span id="current-guesser-name" class="text-xs sm:text-sm font-black text-green-400">Jogador 1</span>
         </div>
       </div>
 
-      <button id="btnSavePlayers" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3.5 rounded-lg transition shadow-lg mt-2">Continuar</button>
-    </div>
-
-    <!-- MENU PRINCIPAL -->
-    <div id="screenMenu" class="w-full flex flex-col gap-4 hidden">
-      <div class="bg-[#18181b] p-4 rounded-xl border border-zinc-800 flex justify-around text-center mb-2">
-        <div>
-          <div id="labelP1Name" class="text-xs text-zinc-400 font-bold uppercase">P1</div>
-          <div id="labelP1Score" class="text-2xl font-extrabold text-green-500">0</div>
-        </div>
-        <div class="border-r border-zinc-700"></div>
-        <div>
-          <div id="labelP2Name" class="text-xs text-zinc-400 font-bold uppercase">P2</div>
-          <div id="labelP2Score" class="text-2xl font-extrabold text-green-500">0</div>
-        </div>
+      <!-- Área do Grid -->
+      <div id="grid-container" class="w-full flex-1 flex items-center justify-center min-h-0 relative z-20 pointer-events-none px-2">
+        <div id="board-grid"></div>
       </div>
 
-      <button id="btnStart" class="w-full bg-green-600 hover:bg-green-500 text-white font-black text-lg py-4 rounded-xl shadow-lg transition tracking-wide">START</button>
-      <button id="btnAccount" class="w-full bg-[#18181b] hover:bg-zinc-800 text-zinc-300 font-bold py-3.5 rounded-xl border border-zinc-800 transition">Account</button>
-      <button id="btnConfig" class="w-full bg-[#18181b] hover:bg-zinc-800 text-zinc-300 font-bold py-3.5 rounded-xl border border-zinc-800 transition">Config</button>
-    </div>
+      <!-- Input Transparente para Capturar o Teclado -->
+      <input type="text" id="native-keyboard-input" autocomplete="off" autocorrect="off" spellcheck="false" 
+        onkeydown="handleKeyDown(event)" oninput="handleNativeInput(this)">
 
-    <!-- ESCOLHER PALAVRA -->
-    <div id="screenSetWord" class="w-full flex flex-col gap-4 bg-[#18181b] p-6 rounded-2xl border border-zinc-800 shadow-2xl hidden">
-      <div class="text-center">
-        <span id="badgeCreator" class="px-3 py-1 bg-green-500/10 text-green-400 text-xs font-bold rounded-full border border-green-500/20 uppercase">Vez do Jogador</span>
-        <h2 class="text-lg font-bold text-white mt-2">Escolha a Palavra Secreta</h2>
-        <p class="text-xs text-zinc-400 mt-1">A palavra deve ter de 3 a 9 letras (sem espaços)</p>
-      </div>
-
-      <div class="relative">
-        <input type="password" id="inputSecretWord" placeholder="Digite a palavra..." autocomplete="off" class="w-full bg-[#121213] border border-zinc-700 rounded-lg px-4 py-3.5 text-white focus:outline-none focus:border-green-500 font-bold text-center tracking-widest uppercase">
-        <button id="btnToggleMask" class="absolute right-3 top-3.5 text-zinc-400 text-xs uppercase font-bold">Mostrar</button>
-      </div>
-
-      <button id="btnConfirmWord" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3.5 rounded-lg transition shadow-lg">Confirmar Palavra</button>
-    </div>
-
-    <!-- TELA DO JOGO (GRID) -->
-    <div id="screenGame" class="w-full h-full flex flex-col justify-between items-center hidden py-2">
-      <!-- Placar do Topo -->
-      <div class="w-full bg-[#18181b] px-4 py-2 rounded-xl border border-zinc-800 flex justify-between items-center text-xs mb-2">
-        <span id="gameP1" class="font-bold text-zinc-300">P1: 0</span>
-        <span id="turnIndicator" class="text-green-400 font-bold bg-green-950/50 px-2.5 py-1 rounded-md border border-green-800/50">Tentando: Player</span>
-        <span id="gameP2" class="font-bold text-zinc-300">P2: 0</span>
-      </div>
-
-      <!-- Grid de Letras -->
-      <div id="gridContainer" class="w-full flex-1 flex items-center justify-center py-2">
-        <div id="grid" class="grid gap-1.5 w-full max-w-[340px] justify-center items-center"></div>
-      </div>
-    </div>
-
-    <!-- ACCOUNT / PLACAR DETALHADO -->
-    <div id="screenAccount" class="w-full flex flex-col gap-4 bg-[#18181b] p-6 rounded-2xl border border-zinc-800 hidden">
-      <h2 class="text-lg font-bold text-white text-center">Estatísticas</h2>
-      <div class="space-y-2 text-sm">
-        <div class="flex justify-between py-2 border-b border-zinc-800">
-          <span id="accP1Name" class="text-zinc-400">Jogador 1</span>
-          <span id="accP1Score" class="font-bold text-green-400">0 vitórias</span>
-        </div>
-        <div class="flex justify-between py-2 border-b border-zinc-800">
-          <span id="accP2Name" class="text-zinc-400">Jogador 2</span>
-          <span id="accP2Score" class="font-bold text-green-400">0 vitórias</span>
-        </div>
-      </div>
-      <button id="btnResetScore" class="w-full bg-red-900/40 hover:bg-red-900/60 text-red-300 font-bold py-2.5 rounded-lg border border-red-800/50 transition text-xs mt-2">Resetar Placar</button>
-      <button id="btnCloseAccount" class="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3 rounded-lg transition text-xs">Voltar</button>
     </div>
 
   </main>
 
-  <!-- MODAL DE RESULTADO -->
-  <div id="modalResult" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
-    <div class="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 w-full max-w-xs text-center space-y-4 shadow-2xl">
-      <div id="modalTitle" class="text-2xl font-black text-green-400">VITÓRIA!</div>
-      <p id="modalMessage" class="text-sm text-zinc-300">O jogador adivinhou a palavra!</p>
-      <div class="bg-[#121213] p-3 rounded-xl border border-zinc-800">
-        <span class="text-xs text-zinc-500 font-bold uppercase block mb-1">Palavra Secreta</span>
-        <span id="modalSecretWord" class="text-lg font-extrabold tracking-widest text-green-400 uppercase">---</span>
-      </div>
-      <button id="btnNextRound" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3.5 rounded-xl transition shadow-lg">Próxima Rodada</button>
-    </div>
-  </div>
-
   <script>
-    // ESTADO DO JOGO
-    const state = {
-      p1Name: "Jogador 1",
-      p2Name: "Jogador 2",
-      p1Score: 0,
-      p2Score: 0,
-      creator: 1, 
-      secretWord: "",
-      normalizedWord: "",
-      wordLength: 0,
-      maxAttempts: 6,
-      currentAttempt: 0,
-      currentGuess: "",
-      isGameOver: false,
-      soundEnabled: true
-    };
+    // Configurações do Jogo
+    const targetWord = "TERMO".toUpperCase(); // Palavra secreta (podes alterar a lógica para dinâmica)
+    const wordLength = targetWord.length;
+    const maxAttempts = 6;
 
-    // NORMALIZE PARA ACENTOS
-    function normalizeStr(str) {
-      return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-    }
+    let currentRow = 0;
+    let currentTile = 0;
+    let guesses = Array.from({ length: maxAttempts }, () => []);
+    let gameOver = false;
 
-    // AUDIOS SINTETIZADOS
-    let synth = null;
-    function initAudio() {
-      if (!synth && window.Tone) {
-        synth = new Tone.Synth().toDestination();
-        synth.volume.value = -10;
-      }
-    }
+    // Inicialização
+    function setupBoardGrid() {
+      const grid = document.getElementById('board-grid');
+      grid.innerHTML = '';
+      grid.style.gridTemplateColumns = `repeat(${wordLength}, minmax(0, 1fr))`;
 
-    function playSound(type) {
-      if (!state.soundEnabled) return;
-      try {
-        initAudio();
-        if (Tone.context.state !== 'running') {
-          Tone.start();
-        }
-        if (type === 'key') synth.triggerAttackRelease("C5", "8n");
-        if (type === 'delete') synth.triggerAttackRelease("G4", "8n");
-        if (type === 'invalid') synth.triggerAttackRelease("A3", "8n");
-        if (type === 'win') {
-          const now = Tone.now();
-          synth.triggerAttackRelease("C5", "8n", now);
-          synth.triggerAttackRelease("E5", "8n", now + 0.1);
-          synth.triggerAttackRelease("G5", "8n", now + 0.2);
-        }
-      } catch (e) {}
-    }
-
-    // ELEMENTOS DOM
-    const screens = {
-      players: document.getElementById('screenPlayers'),
-      menu: document.getElementById('screenMenu'),
-      setWord: document.getElementById('screenSetWord'),
-      game: document.getElementById('screenGame'),
-      account: document.getElementById('screenAccount')
-    };
-
-    const hiddenInput = document.getElementById('hiddenInput');
-
-    function showScreen(screenName) {
-      Object.keys(screens).forEach(key => {
-        screens[key].classList.add('hidden');
-      });
-      screens[screenName].classList.remove('hidden');
-
-      document.getElementById('btnHome').classList.toggle('hidden', screenName === 'menu' || screenName === 'players');
-
-      if (screenName === 'game') {
-        setTimeout(() => hiddenInput.focus(), 100);
-      }
-    }
-
-    // CARREGAR DADOS SALVOS
-    function loadStorage() {
-      const savedP1 = localStorage.getItem('words_p1');
-      const savedP2 = localStorage.getItem('words_p2');
-      const savedS1 = localStorage.getItem('words_s1');
-      const savedS2 = localStorage.getItem('words_s2');
-
-      if (savedP1 && savedP2) {
-        state.p1Name = savedP1;
-        state.p2Name = savedP2;
-        state.p1Score = savedS1 ? parseInt(savedS1) : 0;
-        state.p2Score = savedS2 ? parseInt(savedS2) : 0;
-        updateUI();
-        showScreen('menu');
-      } else {
-        showScreen('players');
-      }
-    }
-
-    function updateUI() {
-      document.getElementById('labelP1Name').textContent = state.p1Name;
-      document.getElementById('labelP2Name').textContent = state.p2Name;
-      document.getElementById('labelP1Score').textContent = state.p1Score;
-      document.getElementById('labelP2Score').textContent = state.p2Score;
-
-      document.getElementById('gameP1').textContent = `${state.p1Name}: ${state.p1Score}`;
-      document.getElementById('gameP2').textContent = `${state.p2Name}: ${state.p2Score}`;
-
-      document.getElementById('accP1Name').textContent = state.p1Name;
-      document.getElementById('accP2Name').textContent = state.p2Name;
-      document.getElementById('accP1Score').textContent = `${state.p1Score} vitórias`;
-      document.getElementById('accP2Score').textContent = `${state.p2Score} vitórias`;
-    }
-
-    // REMOVER ESPAÇOS EM TEMPO REAL
-    function cleanInputWithoutSpaces(inputElement) {
-      inputElement.value = inputElement.value.replace(/\s+/g, '');
-    }
-
-    // SALVAR JOGADORES
-    document.getElementById('btnSavePlayers').addEventListener('click', () => {
-      const p1 = document.getElementById('inputP1').value.trim().replace(/\s+/g, '');
-      const p2 = document.getElementById('inputP2').value.trim().replace(/\s+/g, '');
-
-      if (!p1 || !p2) {
-        alert("Preencha o nome dos dois jogadores!");
-        return;
-      }
-
-      state.p1Name = p1;
-      state.p2Name = p2;
-      localStorage.setItem('words_p1', p1);
-      localStorage.setItem('words_p2', p2);
-      localStorage.setItem('words_s1', '0');
-      localStorage.setItem('words_s2', '0');
-
-      updateUI();
-      showScreen('menu');
-    });
-
-    // INICIAR RODADA
-    document.getElementById('btnStart').addEventListener('click', () => {
-      startWordSetup();
-    });
-
-    function startWordSetup() {
-      const creatorName = state.creator === 1 ? state.p1Name : state.p2Name;
-      document.getElementById('badgeCreator').textContent = `Vez de: ${creatorName}`;
-      document.getElementById('inputSecretWord').value = "";
-      showScreen('setWord');
-    }
-
-    // NENHUM ESPAÇO NO CAMPO DE DEFINIR PALAVRA
-    document.getElementById('inputSecretWord').addEventListener('input', (e) => {
-      cleanInputWithoutSpaces(e.target);
-    });
-
-    document.getElementById('btnToggleMask').addEventListener('click', () => {
-      const input = document.getElementById('inputSecretWord');
-      const btn = document.getElementById('btnToggleMask');
-      if (input.type === 'password') {
-        input.type = 'text';
-        btn.textContent = 'Esconder';
-      } else {
-        input.type = 'password';
-        btn.textContent = 'Mostrar';
-      }
-    });
-
-    // CONFIRMAR PALAVRA SECRETA
-    document.getElementById('btnConfirmWord').addEventListener('click', () => {
-      const val = document.getElementById('inputSecretWord').value.trim().replace(/\s+/g, '');
-      if (val.length < 3 || val.length > 9) {
-        alert("A palavra deve ter de 3 a 9 letras!");
-        return;
-      }
-
-      state.secretWord = val.toUpperCase();
-      state.normalizedWord = normalizeStr(val);
-      state.wordLength = val.length;
-      state.currentAttempt = 0;
-      state.currentGuess = "";
-      state.isGameOver = false;
-
-      setupGrid();
-      
-      const guesserName = state.creator === 1 ? state.p2Name : state.p1Name;
-      document.getElementById('turnIndicator').textContent = `Tentando: ${guesserName}`;
-
-      showScreen('game');
-    });
-
-    // CONFIGURAR GRID
-    function setupGrid() {
-      const grid = document.getElementById('grid');
-      grid.innerHTML = "";
-      grid.style.gridTemplateColumns = `repeat(${state.wordLength}, minmax(0, 1fr))`;
-
-      const tileSizeClass = state.wordLength > 7 ? 'w-8 h-10' : state.wordLength > 5 ? 'w-10 h-12' : 'w-12 h-14';
-
-      for (let r = 0; r < state.maxAttempts; r++) {
-        for (let c = 0; c < state.wordLength; c++) {
+      for (let r = 0; r < maxAttempts; r++) {
+        for (let c = 0; c < wordLength; c++) {
           const tile = document.createElement('div');
+          tile.className = 'tile';
           tile.id = `tile-${r}-${c}`;
-          tile.className = `word-tile ${tileSizeClass}`;
+
+          tile.innerHTML = `
+            <div class="tile-inner">
+              <div class="tile-front" style="border: 2px solid #3a3a3c; background-color: #121213; border-radius: 6px;"></div>
+            </div>
+          `;
+
           grid.appendChild(tile);
         }
       }
+
+      adjustTileSizes();
+      highlightActiveTile();
     }
 
-    // MANIPULAÇÃO DE DIGITAÇÃO E TECLADO NATIVO
-    document.getElementById('screenGame').addEventListener('click', () => {
-      hiddenInput.focus();
-    });
+    // Ajusta o tamanho das células para caber em qualquer ecrã
+    function adjustTileSizes() {
+      const container = document.getElementById('grid-container');
+      if (!container || container.clientHeight === 0) return;
 
-    hiddenInput.addEventListener('input', (e) => {
-      if (state.isGameOver) return;
-      let val = hiddenInput.value.replace(/\s+/g, '');
-      hiddenInput.value = ""; // limpa para continuar capturando
-      
-      for (let char of val) {
-        if (/^[a-zA-ZáàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇ]$/.test(char)) {
-          addLetter(char.toUpperCase());
-        }
+      const gap = 6;
+      const padding = 16;
+
+      const availHeight = container.clientHeight - padding;
+      const availWidth = container.clientWidth - padding;
+
+      const maxTileHeight = Math.floor((availHeight - ((maxAttempts - 1) * gap)) / maxAttempts);
+      const maxTileWidth = Math.floor((availWidth - ((wordLength - 1) * gap)) / wordLength);
+
+      const tileSize = Math.max(28, Math.min(maxTileHeight, maxTileWidth, 62));
+      const fontSize = Math.max(14, Math.floor(tileSize * 0.52));
+
+      document.querySelectorAll('.tile').forEach(tile => {
+        tile.style.width = `${tileSize}px`;
+        tile.style.height = `${tileSize}px`;
+      });
+
+      document.querySelectorAll('.tile-front').forEach(el => {
+        el.style.fontSize = `${fontSize}px`;
+      });
+    }
+
+    // Foca o input para abrir o teclado no mobile
+    function focusNativeKeyboard() {
+      const input = document.getElementById('native-keyboard-input');
+      if (input) input.focus();
+    }
+
+    // Destaque da célula atual
+    function highlightActiveTile() {
+      document.querySelectorAll('.tile-front').forEach(el => el.classList.remove('tile-active'));
+      if (gameOver || currentRow >= maxAttempts) return;
+
+      const activeTile = document.querySelector(`#tile-${currentRow}-${currentTile} .tile-front`);
+      if (activeTile) {
+        activeTile.classList.add('tile-active');
       }
-    });
+    }
 
-    document.addEventListener('keydown', (e) => {
-      if (screens.game.classList.contains('hidden') || state.isGameOver) return;
+    // Gestão do teclado
+    function handleKeyDown(e) {
+      if (gameOver) return;
 
-      if (e.key === 'Space' || e.code === 'Space') {
-        e.preventDefault();
-        return;
-      }
-
-      if (e.key === 'Backspace') {
-        deleteLetter();
-      } else if (e.key === 'Enter') {
+      if (e.key === 'Enter') {
         submitGuess();
-      } else if (e.key.length === 1 && /^[a-zA-ZáàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇ]$/.test(e.key)) {
+      } else if (e.key === 'Backspace') {
+        deleteLetter();
+      } else if (/^[a-zA-Z]$/.test(e.key)) {
         addLetter(e.key.toUpperCase());
       }
-    });
+    }
+
+    function handleNativeInput(input) {
+      const value = input.value;
+      if (!value) return;
+
+      const lastChar = value.slice(-1);
+      if (/^[a-zA-Z]$/.test(lastChar)) {
+        addLetter(lastChar.toUpperCase());
+      }
+      input.value = '';
+    }
 
     function addLetter(letter) {
-      if (state.currentGuess.length < state.wordLength) {
-        state.currentGuess += letter;
-        playSound('key');
-        updateCurrentRow();
+      if (currentTile < wordLength && currentRow < maxAttempts) {
+        guesses[currentRow][currentTile] = letter;
+        const tileFront = document.querySelector(`#tile-${currentRow}-${currentTile} .tile-front`);
+        tileFront.textContent = letter;
+        tileFront.classList.add('animate-pop');
+
+        if (currentTile < wordLength - 1) {
+          currentTile++;
+        }
+        highlightActiveTile();
       }
     }
 
     function deleteLetter() {
-      if (state.currentGuess.length > 0) {
-        state.currentGuess = state.currentGuess.slice(0, -1);
-        playSound('delete');
-        updateCurrentRow();
+      if (currentRow >= maxAttempts) return;
+
+      const tileFrontCurrent = document.querySelector(`#tile-${currentRow}-${currentTile} .tile-front`);
+      
+      if (tileFrontCurrent && tileFrontCurrent.textContent !== '') {
+        guesses[currentRow][currentTile] = '';
+        tileFrontCurrent.textContent = '';
+        tileFrontCurrent.classList.remove('animate-pop');
+      } else if (currentTile > 0) {
+        currentTile--;
+        guesses[currentRow][currentTile] = '';
+        const tileFrontPrev = document.querySelector(`#tile-${currentRow}-${currentTile} .tile-front`);
+        tileFrontPrev.textContent = '';
+        tileFrontPrev.classList.remove('animate-pop');
       }
+      highlightActiveTile();
     }
 
-    function updateCurrentRow() {
-      for (let c = 0; c < state.wordLength; c++) {
-        const tile = document.getElementById(`tile-${state.currentAttempt}-${c}`);
-        if (tile) {
-          if (c < state.currentGuess.length) {
-            tile.textContent = state.currentGuess[c];
-            tile.setAttribute('data-state', 'active');
-          } else {
-            tile.textContent = "";
-            tile.removeAttribute('data-state');
-          }
-        }
-      }
-    }
-
-    // SUBMETER TENTATIVA
     function submitGuess() {
-      if (state.currentGuess.length !== state.wordLength) {
-        playSound('invalid');
-        shakeRow(state.currentAttempt);
+      const currentGuess = guesses[currentRow].join('');
+
+      if (currentGuess.length !== wordLength) {
+        alert('Preencha todas as letras antes de confirmar!');
         return;
       }
 
-      const guessNorm = normalizeStr(state.currentGuess);
-      const secretNorm = state.normalizedWord;
+      // Validação das cores
+      const targetArr = targetWord.split('');
+      const guessArr = guesses[currentRow];
+      const result = Array(wordLength).fill('absent');
 
-      const guessLetters = guessNorm.split('');
-      const secretLetters = secretNorm.split('');
-      const row = state.currentAttempt;
-      const letterStates = new Array(state.wordLength).fill('absent');
-
-      // Primeira passada: letras corretas (Verde)
-      for (let i = 0; i < state.wordLength; i++) {
-        if (guessLetters[i] === secretLetters[i]) {
-          letterStates[i] = 'correct';
-          secretLetters[i] = null;
+      // 1. Marca os corretos (verdes)
+      guessArr.forEach((char, i) => {
+        if (char === targetArr[i]) {
+          result[i] = 'correct';
+          targetArr[i] = null;
         }
-      }
+      });
 
-      // Segunda passada: letras presentes em posição errada (Amarelo)
-      for (let i = 0; i < state.wordLength; i++) {
-        if (letterStates[i] !== 'correct') {
-          const indexInSecret = secretLetters.indexOf(guessLetters[i]);
-          if (indexInSecret !== -1) {
-            letterStates[i] = 'present';
-            secretLetters[indexInSecret] = null;
+      // 2. Marca os presentes (amarelos)
+      guessArr.forEach((char, i) => {
+        if (result[i] !== 'correct') {
+          const targetIndex = targetArr.indexOf(char);
+          if (targetIndex !== -1) {
+            result[i] = 'present';
+            targetArr[targetIndex] = null;
           }
         }
-      }
+      });
 
-      // Animação de revelação
-      for (let i = 0; i < state.wordLength; i++) {
-        const tile = document.getElementById(`tile-${row}-${i}`);
-        setTimeout(() => {
-          tile.classList.add('flip-tile');
-          tile.setAttribute('data-state', letterStates[i]);
-        }, i * 200);
-      }
+      // Aplicação visual das cores
+      result.forEach((status, i) => {
+        const tileFront = document.querySelector(`#tile-${currentRow}-${i} .tile-front`);
+        tileFront.classList.add(status);
+      });
 
-      const isWin = guessNorm === secretNorm;
-
-      setTimeout(() => {
-        if (isWin) {
-          handleEndGame(true);
-        } else {
-          state.currentAttempt++;
-          state.currentGuess = "";
-          if (state.currentAttempt >= state.maxAttempts) {
-            handleEndGame(false);
-          }
-        }
-      }, state.wordLength * 200 + 100);
-    }
-
-    function shakeRow(row) {
-      for (let c = 0; c < state.wordLength; c++) {
-        const tile = document.getElementById(`tile-${row}-${c}`);
-        tile.classList.add('shake');
-        setTimeout(() => tile.classList.remove('shake'), 400);
-      }
-    }
-
-    // FIM DA RODADA E PONTUAÇÃO
-    function handleEndGame(isWin) {
-      state.isGameOver = true;
-      const modal = document.getElementById('modalResult');
-      const title = document.getElementById('modalTitle');
-      const msg = document.getElementById('modalMessage');
-      const wordDisplay = document.getElementById('modalSecretWord');
-
-      wordDisplay.textContent = state.secretWord;
-
-      const guesserName = state.creator === 1 ? state.p2Name : state.p1Name;
-      const creatorName = state.creator === 1 ? state.p1Name : state.p2Name;
-
-      if (isWin) {
-        playSound('win');
-        title.textContent = "VITÓRIA!";
-        title.className = "text-2xl font-black text-green-400";
-        msg.textContent = `${guesserName} adivinhou a palavra! (+1 ponto)`;
-
-        if (state.creator === 1) state.p2Score++;
-        else state.p1Score++;
-
-        localStorage.setItem('words_s1', state.p1Score);
-        localStorage.setItem('words_s2', state.p2Score);
-        updateUI();
+      if (currentGuess === targetWord) {
+        gameOver = true;
+        setTimeout(() => alert('Parabéns! Adivinhaste a palavra!'), 200);
+      } else if (currentRow === maxAttempts - 1) {
+        gameOver = true;
+        setTimeout(() => alert(`Fim de jogo! A palavra era ${targetWord}`), 200);
       } else {
-        playSound('invalid');
-        title.textContent = "FIM DE JOGO!";
-        title.className = "text-2xl font-black text-red-400";
-        msg.textContent = `${guesserName} não conseguiu adivinhar. Ponto para ${creatorName}!`;
-
-        if (state.creator === 1) state.p1Score++;
-        else state.p2Score++;
-
-        localStorage.setItem('words_s1', state.p1Score);
-        localStorage.setItem('words_s2', state.p2Score);
-        updateUI();
+        currentRow++;
+        currentTile = 0;
+        highlightActiveTile();
       }
-
-      modal.classList.remove('hidden');
     }
 
-    // PRÓXIMA RODADA (INVERTE QUEM CRIA A PALAVRA)
-    document.getElementById('btnNextRound').addEventListener('click', () => {
-      document.getElementById('modalResult').classList.add('hidden');
-      state.creator = state.creator === 1 ? 2 : 1;
-      startWordSetup();
+    // Listeners Globais
+    window.addEventListener('resize', adjustTileSizes);
+    window.addEventListener('DOMContentLoaded', () => {
+      setupBoardGrid();
+      focusNativeKeyboard();
     });
-
-    // NAVEGAÇÃO
-    document.getElementById('btnHome').addEventListener('click', () => {
-      showScreen('menu');
-    });
-
-    document.getElementById('btnAccount').addEventListener('click', () => {
-      showScreen('account');
-    });
-
-    document.getElementById('btnCloseAccount').addEventListener('click', () => {
-      showScreen('menu');
-    });
-
-    document.getElementById('btnResetScore').addEventListener('click', () => {
-      if (confirm("Deseja realmente zerar o placar?")) {
-        state.p1Score = 0;
-        state.p2Score = 0;
-        localStorage.setItem('words_s1', '0');
-        localStorage.setItem('words_s2', '0');
-        updateUI();
-      }
-    });
-
-    // SOM TOGGLE
-    document.getElementById('btnSound').addEventListener('click', () => {
-      state.soundEnabled = !state.soundEnabled;
-      document.getElementById('iconSoundOn').classList.toggle('hidden', !state.soundEnabled);
-      document.getElementById('iconSoundOff').classList.toggle('hidden', state.soundEnabled);
-    });
-
-    // INICIALIZAÇÃO
-    loadStorage();
   </script>
 </body>
 </html>
