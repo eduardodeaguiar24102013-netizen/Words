@@ -1,10 +1,10 @@
 html
 <!DOCTYPE html>
-<html lang="pt-BR" class="h-full">
+<html lang="pt-BR" class="h-full w-full">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Words - Duel Multiplayer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>WORDS - Jogo de Adivinhação</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -15,6 +15,7 @@ html
     * {
       box-sizing: border-box;
       -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
     }
 
     html, body {
@@ -29,10 +30,9 @@ html
       user-select: none;
     }
 
-    /* Flip Animation for tiles */
+    /* 3D Flip animation for tiles */
     .tile {
       perspective: 1000px;
-      transition: transform 0.15s ease-in-out;
     }
 
     .tile-inner {
@@ -40,7 +40,7 @@ html
       width: 100%;
       height: 100%;
       text-align: center;
-      transition: transform 0.6s;
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
       transform-style: preserve-3d;
     }
 
@@ -50,8 +50,7 @@ html
 
     .tile-front, .tile-back {
       position: absolute;
-      width: 100%;
-      height: 100%;
+      inset: 0;
       -webkit-backface-visibility: hidden;
       backface-visibility: hidden;
       display: flex;
@@ -60,6 +59,7 @@ html
       font-weight: 800;
       border-radius: 0.5rem;
       user-select: none;
+      text-transform: uppercase;
     }
 
     .tile-front {
@@ -75,7 +75,7 @@ html
 
     .tile.active-input .tile-front {
       border-color: #a1a1aa;
-      box-shadow: 0 0 8px rgba(161, 161, 170, 0.3);
+      box-shadow: 0 0 10px rgba(161, 161, 170, 0.3);
     }
 
     .tile.pop {
@@ -89,45 +89,46 @@ html
     }
 
     .shake {
-      animation: shake 0.5s;
+      animation: shake 0.4s ease-in-out;
     }
 
     @keyframes shake {
       0%, 100% { transform: translateX(0); }
-      20%, 60% { transform: translateX(-6px); }
-      40%, 80% { transform: translateX(6px); }
+      20%, 60% { transform: translateX(-5px); }
+      40%, 80% { transform: translateX(5px); }
     }
 
-    /* Termo Status Colors */
+    /* Letter status colors */
     .correct { background-color: #538d4e !important; color: white !important; border-color: #538d4e !important; }
     .present { background-color: #b59f3b !important; color: white !important; border-color: #b59f3b !important; }
     .absent { background-color: #3a3a3c !important; color: white !important; border-color: #3a3a3c !important; }
 
-    /* Hidden Input for Native Keyboard invocation */
+    /* Truly invisible mobile input */
     #native-keyboard-input {
       position: absolute;
       opacity: 0;
-      top: -1000px;
-      left: -1000px;
+      pointer-events: none;
+      top: 0;
+      left: 0;
       width: 1px;
       height: 1px;
-      z-index: -10;
+      z-index: -50;
     }
 
-    /* Modal Animation */
     .animate-pop {
-      animation: modalPop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      animation: modalPop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
     @keyframes modalPop {
-      0% { opacity: 0; transform: scale(0.85); }
+      0% { opacity: 0; transform: scale(0.9); }
       100% { opacity: 1; transform: scale(1); }
     }
   </style>
 </head>
 <body class="h-full w-full flex flex-col justify-between items-center p-3 select-none">
 
-  <header class="w-full max-w-md shrink-0 flex justify-between items-center border-b border-zinc-800 pb-2.5">
+  <!-- Top Navigation Header -->
+  <header class="w-full max-w-md shrink-0 flex justify-between items-center border-b border-zinc-800 pb-2">
     <div class="flex items-center space-x-2">
       <span class="text-2xl sm:text-3xl font-black tracking-wider bg-gradient-to-r from-emerald-400 via-green-500 to-yellow-400 bg-clip-text text-transparent">WORDS</span>
       <span class="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest border border-zinc-700">DUEL</span>
@@ -148,11 +149,11 @@ html
 
   <main class="w-full max-w-md flex-1 flex flex-col items-center justify-center relative overflow-hidden my-auto">
 
-    <!-- TELA 1: REGISTRO DE JOGADORES -->
+    <!-- TELA 1: CADASTRO DE JOGADORES -->
     <div id="setup-screen" class="w-full flex flex-col items-center justify-center space-y-4 my-auto p-2">
       <div class="text-center space-y-1">
         <h1 class="text-2xl sm:text-3xl font-extrabold">Bem-vindo ao Words!</h1>
-        <p class="text-zinc-400 text-xs sm:text-sm">Cadastre os jogadores para registrar o histórico de pontos.</p>
+        <p class="text-zinc-400 text-xs sm:text-sm">Cadastre os dois jogadores para iniciar as rodadas.</p>
       </div>
 
       <form id="setup-form" onsubmit="savePlayers(event)" class="w-full space-y-3 bg-zinc-900/90 p-5 rounded-2xl border border-zinc-800 shadow-xl">
@@ -183,7 +184,7 @@ html
 
     <!-- TELA 2: MENU PRINCIPAL -->
     <div id="menu-screen" class="hidden w-full flex flex-col items-center justify-center space-y-4 my-auto p-2">
-      <!-- Placar Dashboard -->
+      <!-- Dashboard de Placar -->
       <div class="w-full bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 flex justify-between items-center shadow-lg">
         <div class="flex flex-col items-start">
           <span class="text-[10px] text-zinc-400 font-semibold uppercase">Jogador 1</span>
@@ -198,7 +199,7 @@ html
         </div>
       </div>
 
-      <!-- Menu Options -->
+      <!-- Ações do Menu -->
       <div class="w-full space-y-2.5">
         <button onclick="playSound('click'); startNewGame();" class="w-full py-3.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-black text-base rounded-xl shadow-lg transition transform active:scale-98 flex items-center justify-center gap-3">
           <i class="fa-solid fa-play"></i>
@@ -254,45 +255,41 @@ html
       </form>
     </div>
 
-    <!-- TELA 4: TELA DO JOGO (GRID SEM TECLADO VIRTUAL) -->
-    <div id="game-screen" class="hidden w-full h-full flex flex-col justify-between items-center py-1" onclick="focusNativeKeyboard()">
+    <!-- TELA 4: GAMEPLAY GRID -->
+    <div id="game-screen" class="hidden w-full h-full flex flex-col justify-between items-center py-1 cursor-pointer" onclick="focusNativeKeyboard()">
       
-      <!-- Top Bar do Jogo -->
-      <div class="w-full shrink-0 flex justify-between items-center bg-zinc-900/80 px-3.5 py-2 rounded-xl border border-zinc-800 mb-2">
-        <div class="text-left">
+      <!-- Top Info Bar sem elementos sobrepostos -->
+      <div class="w-full shrink-0 flex justify-between items-center bg-zinc-900/90 px-3.5 py-2.5 rounded-xl border border-zinc-800 mb-1 shadow-md">
+        <div class="flex flex-col items-start gap-0.5">
           <div id="p1-game-info" class="text-xs font-bold text-zinc-300">P1: 0</div>
           <div id="p2-game-info" class="text-xs font-bold text-zinc-300">P2: 0</div>
         </div>
-        <div class="text-center">
-          <span class="text-[9px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full font-semibold border border-zinc-700/60">
-            <i class="fa-solid fa-keyboard mr-1"></i> Teclado Nativo
-          </span>
-        </div>
+
         <div class="text-right">
-          <div class="text-[9px] text-zinc-400 uppercase font-semibold">Tentando Adivinhar</div>
-          <div id="current-guesser-name" class="text-xs font-black text-green-400">Jogador</div>
+          <span class="text-[10px] text-zinc-400 uppercase font-semibold block">Tentando Adivinhar</span>
+          <span id="current-guesser-name" class="text-xs sm:text-sm font-black text-green-400">Jogador</span>
         </div>
       </div>
 
-      <!-- Grid Container adaptável dinamicamente -->
-      <div id="grid-container" class="w-full flex-1 flex items-center justify-center min-h-0 py-2">
-        <div id="board-grid" class="grid gap-1.5 sm:gap-2 justify-center items-center h-full max-h-full"></div>
+      <!-- Resizable Board Grid Area -->
+      <div id="grid-container" class="w-full flex-1 flex items-center justify-center min-h-0 py-1">
+        <div id="board-grid" class="grid gap-1.5 justify-center items-center h-full max-h-full"></div>
       </div>
 
-      <!-- Input Transparente Invisível para Acionar Teclado Virtual Nativo de Dispositivos Móveis -->
+      <!-- Hidden Keyboard Input Trigger -->
       <input type="text" id="native-keyboard-input" autocomplete="off" autocorrect="off" spellcheck="false" 
         onkeydown="preventSpace(event)" oninput="handleNativeInput(this)">
 
-      <!-- Dica e Controles Auxiliares -->
-      <div class="w-full shrink-0 pt-2 pb-1 flex justify-between items-center px-1 text-xs text-zinc-400">
-        <button onclick="event.stopPropagation(); playSound('delete'); handleBackspace();" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-3.5 py-2 rounded-xl font-bold flex items-center gap-1.5 border border-zinc-700/60 active:scale-95 transition">
+      <!-- Bottom Controls Area -->
+      <div class="w-full shrink-0 pt-1.5 pb-1 flex justify-between items-center gap-3">
+        <button onclick="event.stopPropagation(); playSound('delete'); handleBackspace();" 
+          class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 border border-zinc-700/60 active:scale-95 transition text-sm">
           <i class="fa-solid fa-backspace"></i>
           <span>Apagar</span>
         </button>
 
-        <span class="text-[11px] text-zinc-500 hidden sm:inline">Use o teclado nativo do dispositivo</span>
-
-        <button onclick="event.stopPropagation(); playSound('click'); handleEnter();" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 active:scale-95 transition shadow-lg">
+        <button onclick="event.stopPropagation(); playSound('click'); handleEnter();" 
+          class="flex-1 bg-green-600 hover:bg-green-500 text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 active:scale-95 transition shadow-lg text-sm">
           <span>ENTER</span>
           <i class="fa-solid fa-turn-down text-xs rotate-90"></i>
         </button>
@@ -390,11 +387,7 @@ html
         </div>
         <div class="flex items-center justify-between p-2.5 bg-zinc-800/40 rounded-xl">
           <span class="font-medium text-zinc-300">Bloqueio de Espaço</span>
-          <span class="bg-green-900/60 text-green-400 px-2 py-0.5 rounded font-bold text-[11px]">Estrito</span>
-        </div>
-        <div class="flex items-center justify-between p-2.5 bg-zinc-800/40 rounded-xl">
-          <span class="font-medium text-zinc-300">Teclado Usado</span>
-          <span class="bg-zinc-700 text-zinc-300 px-2 py-0.5 rounded font-bold text-[11px]">Nativo/Físico</span>
+          <span class="bg-green-900/60 text-green-400 px-2 py-0.5 rounded font-bold text-[11px]">Ativado</span>
         </div>
       </div>
 
@@ -410,7 +403,7 @@ html
   </div>
 
   <script>
-    /* Global State Variables */
+    /* Game State */
     let player1 = { name: 'Player 1', score: 0 };
     let player2 = { name: 'Player 2', score: 0 };
     let currentChooser = 1; 
@@ -423,7 +416,7 @@ html
     let isGameOver = false;
     let audioEnabled = true;
 
-    // Accent mapping for Portuguese character normalization
+    /* Portuguese Accent Normalization */
     const ACCENT_MAP = {
       'Á':'A', 'À':'A', 'Ã':'A', 'Â':'A', 'Ä':'A',
       'É':'E', 'È':'E', 'Ê':'E', 'Ë':'E',
@@ -433,7 +426,7 @@ html
       'Ç':'C'
     };
 
-    /* Web Audio Synthesizer (Tone.js) */
+    /* Web Audio Synthesizer */
     let synth, polySynth;
     function initAudio() {
       if (!synth && typeof Tone !== 'undefined') {
@@ -447,9 +440,7 @@ html
 
           polySynth = new Tone.PolySynth(Tone.Synth).toDestination();
           polySynth.volume.value = -10;
-        } catch(e) {
-          console.log("Audio initialize failed", e);
-        }
+        } catch(e) {}
       }
     }
 
@@ -457,19 +448,12 @@ html
       if (!audioEnabled || !synth) return;
       try {
         const now = Tone.now();
-        if (type === 'type') {
-          synth.triggerAttackRelease('C5', '0.03', now);
-        } else if (type === 'delete') {
-          synth.triggerAttackRelease('G4', '0.04', now);
-        } else if (type === 'click') {
-          synth.triggerAttackRelease('E5', '0.02', now);
-        } else if (type === 'flip') {
-          synth.triggerAttackRelease('A4', '0.05', now);
-        } else if (type === 'win') {
-          polySynth.triggerAttackRelease(['C5', 'E5', 'G5', 'C6'], '0.3', now);
-        } else if (type === 'lose') {
-          polySynth.triggerAttackRelease(['F4', 'D#4', 'D4', 'C#4'], '0.2', now);
-        }
+        if (type === 'type') synth.triggerAttackRelease('C5', '0.03', now);
+        else if (type === 'delete') synth.triggerAttackRelease('G4', '0.04', now);
+        else if (type === 'click') synth.triggerAttackRelease('E5', '0.02', now);
+        else if (type === 'flip') synth.triggerAttackRelease('A4', '0.05', now);
+        else if (type === 'win') polySynth.triggerAttackRelease(['C5', 'E5', 'G5', 'C6'], '0.3', now);
+        else if (type === 'lose') polySynth.triggerAttackRelease(['F4', 'D#4', 'D4', 'C#4'], '0.2', now);
       } catch(e){}
     }
 
@@ -489,7 +473,7 @@ html
       }
     }
 
-    /* Strict Space Prevention Functions */
+    /* Space Character Filters */
     function preventSpace(e) {
       if (e.key === ' ' || e.code === 'Space' || e.keyCode === 32) {
         e.preventDefault();
@@ -503,7 +487,6 @@ html
       }
     }
 
-    /* Text Normalization */
     function normalizeChar(char) {
       const upper = char.toUpperCase();
       return ACCENT_MAP[upper] || upper;
@@ -513,7 +496,7 @@ html
       return str.split('').map(normalizeChar).join('');
     }
 
-    /* Application Initialization */
+    /* Lifecycle & Setup */
     window.addEventListener('DOMContentLoaded', () => {
       loadState();
       setupNativeKeyboardHandlers();
@@ -647,7 +630,6 @@ html
       const guesserName = currentChooser === 1 ? player2.name : player1.name;
       document.getElementById('current-guesser-name').textContent = guesserName;
 
-      // Reseta partida
       currentAttempt = 0;
       currentGuessOriginal = '';
       isGameOver = false;
@@ -682,19 +664,18 @@ html
       highlightActiveTile();
     }
 
-    /* Redimensionamento Dinâmico de Células no Grid */
     function adjustTileSizes() {
       const container = document.getElementById('grid-container');
       if (!container || container.clientHeight === 0) return;
 
-      const availHeight = container.clientHeight - 10;
-      const availWidth = container.clientWidth - 10;
+      const availHeight = container.clientHeight - 8;
+      const availWidth = container.clientWidth - 8;
 
-      const maxTileHeight = Math.floor((availHeight - (maxAttempts * 8)) / maxAttempts);
-      const maxTileWidth = Math.floor((availWidth - (wordLength * 8)) / wordLength);
+      const maxTileHeight = Math.floor((availHeight - (maxAttempts * 6)) / maxAttempts);
+      const maxTileWidth = Math.floor((availWidth - (wordLength * 6)) / wordLength);
 
-      const tileSize = Math.min(maxTileHeight, maxTileWidth, 68); // Max size 68px
-      const fontSize = Math.max(14, Math.floor(tileSize * 0.48));
+      const tileSize = Math.min(maxTileHeight, maxTileWidth, 62);
+      const fontSize = Math.max(13, Math.floor(tileSize * 0.48));
 
       document.querySelectorAll('.tile').forEach(tile => {
         tile.style.width = `${tileSize}px`;
@@ -706,7 +687,6 @@ html
       });
     }
 
-    /* Native Keyboard Handler & Synchronization */
     function focusNativeKeyboard() {
       if (isGameOver) return;
       const hiddenInput = document.getElementById('native-keyboard-input');
@@ -716,12 +696,10 @@ html
     }
 
     function setupNativeKeyboardHandlers() {
-      // Global keydown handler para computadores / teclados físicos
       document.addEventListener('keydown', (e) => {
         const gameScreen = document.getElementById('game-screen');
         if (gameScreen.classList.contains('hidden') || isGameOver) return;
 
-        // Estrito bloqueio de espaço
         if (e.key === ' ' || e.code === 'Space' || e.keyCode === 32) {
           e.preventDefault();
           return;
@@ -733,16 +711,12 @@ html
           handleEnter();
         } else if (e.key === 'Backspace') {
           handleBackspace();
-        } else {
-          // Permite letras e acentos
-          if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-            handleCharInput(e.key.toUpperCase());
-          }
+        } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          handleCharInput(e.key.toUpperCase());
         }
       });
     }
 
-    // Input handler para teclado mobile touch
     function handleNativeInput(inputEl) {
       if (isGameOver) {
         inputEl.value = '';
@@ -759,7 +733,7 @@ html
 
     function handleCharInput(char) {
       if (isGameOver) return;
-      if (char === ' ') return; // Bloqueio estrito extra
+      if (char === ' ') return;
 
       if (currentGuessOriginal.length < wordLength) {
         currentGuessOriginal += char;
@@ -822,7 +796,7 @@ html
         const tile = document.getElementById(`tile-${rowIdx}-${c}`);
         if (tile) {
           tile.classList.add('shake');
-          setTimeout(() => tile.classList.remove('shake'), 500);
+          setTimeout(() => tile.classList.remove('shake'), 400);
         }
       }
     }
@@ -833,7 +807,6 @@ html
       const guessNormArr = guessNorm.split('');
       const tileStatuses = Array(wordLength).fill('absent');
 
-      // 1ª Passagem: Acertos exatos (Verde)
       for (let i = 0; i < wordLength; i++) {
         if (guessNormArr[i] === secretNormArr[i]) {
           tileStatuses[i] = 'correct';
@@ -841,7 +814,6 @@ html
         }
       }
 
-      // 2ª Passagem: Posições erradas (Amarelo)
       for (let i = 0; i < wordLength; i++) {
         if (tileStatuses[i] !== 'correct') {
           const indexInSecret = secretNormArr.indexOf(guessNormArr[i]);
@@ -852,10 +824,9 @@ html
         }
       }
 
-      isGameOver = true; // Bloqueia digitação durante animação
+      isGameOver = true;
       document.querySelectorAll('.tile').forEach(t => t.classList.remove('active-input'));
 
-      // Revelar letra por letra com som e flip
       guessNormArr.forEach((normLetter, c) => {
         setTimeout(() => {
           playSound('flip');
@@ -863,18 +834,16 @@ html
           const back = tile.querySelector('.tile-back');
           const status = tileStatuses[c];
 
-          // Exibe caractere original digitado
           back.textContent = currentGuessOriginal[c];
           back.classList.add(status);
           tile.classList.add('flip');
 
-          // Ao finalizar a animação da última letra
           if (c === wordLength - 1) {
             setTimeout(() => {
               checkGameEnd(guessNorm);
-            }, 400);
+            }, 350);
           }
-        }, c * 220);
+        }, c * 200);
       });
     }
 
@@ -883,7 +852,6 @@ html
       const guesserName = guesserIndex === 1 ? player1.name : player2.name;
 
       if (guessNorm === secretWordNormalized) {
-        // Vitória
         if (guesserIndex === 1) {
           player1.score += 1;
           localStorage.setItem('words_p1', JSON.stringify(player1));
@@ -900,11 +868,10 @@ html
         currentGuessOriginal = '';
 
         if (currentAttempt >= maxAttempts) {
-          // Derrota
           playSound('lose');
           showResultModal(false, guesserName);
         } else {
-          isGameOver = false; // Liberado para a próxima tentativa
+          isGameOver = false;
           highlightActiveTile();
           focusNativeKeyboard();
         }
@@ -950,7 +917,7 @@ html
       localStorage.setItem('words_p1', JSON.stringify(player1));
       localStorage.setItem('words_p2', JSON.stringify(player2));
       updateUIInfo();
-      showToast('Placar zerado com sucesso!');
+      showToast('Placar zerado!');
     }
 
     function openModal(id) {
@@ -970,7 +937,7 @@ html
       setTimeout(() => {
         toast.classList.remove('opacity-100');
         toast.classList.add('opacity-0');
-      }, 2400);
+      }, 2200);
     }
   </script>
 </body>
