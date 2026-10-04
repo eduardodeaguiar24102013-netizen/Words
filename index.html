@@ -14,7 +14,6 @@ html
             font-family: 'Plus Jakarta Sans', sans-serif;
             touch-action: manipulation;
         }
-        /* Animações e efeitos dos blocos do Termo */
         .tile-flip {
             animation: flip 0.5s ease forwards;
         }
@@ -31,7 +30,6 @@ html
             50% { transform: scale(1.1); }
             100% { transform: scale(1); }
         }
-        /* Estilização para o Teclado Virtual */
         .key-btn {
             user-select: none;
             touch-action: manipulation;
@@ -39,6 +37,12 @@ html
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+    <!-- Banner de Alerta / Erro Personalizado (Substitui alert) -->
+    <div id="toast-banner" class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-xs w-full bg-rose-600 text-white p-3.5 rounded-2xl shadow-2xl border border-rose-400 flex items-center justify-between text-xs font-semibold animate-bounce">
+        <span id="toast-message">Ocorreu um erro ao conectar.</span>
+        <button id="toast-close" class="ml-2 font-bold bg-rose-700 p-1 rounded-lg">✕</button>
+    </div>
 
     <!-- Cabeçalho Principal -->
     <header class="bg-slate-800/80 backdrop-blur border-b border-slate-700/60 p-3 sticky top-0 z-20">
@@ -49,7 +53,7 @@ html
                 </div>
                 <div>
                     <h1 class="font-bold text-base leading-tight">Wordle Duel</h1>
-                    <p id="room-status-badge" class="text-xs text-slate-400">Offline</p>
+                    <p id="room-status-badge" class="text-xs text-slate-400">Conectando...</p>
                 </div>
             </div>
             
@@ -62,7 +66,7 @@ html
         </div>
     </header>
 
-    <!-- Conteúdo Principal Dinâmico -->
+    <!-- Conteúdo Principal -->
     <main class="flex-1 max-w-md w-full mx-auto p-4 flex flex-col justify-center">
 
         <!-- 1. TELA DE LOBBY / ENTRADA -->
@@ -82,7 +86,7 @@ html
                 <div class="grid grid-cols-2 gap-3 pt-2">
                     <button id="btn-create-room" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-600/30 transition flex flex-col items-center justify-center gap-1">
                         <i data-lucide="plus-circle" class="w-5 h-5"></i>
-                        <span>Criar Sala</span>
+                        <span id="btn-create-label">Criar Sala</span>
                     </button>
                     <button id="btn-join-room-modal" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-indigo-600/30 transition flex flex-col items-center justify-center gap-1">
                         <i data-lucide="log-in" class="w-5 h-5"></i>
@@ -100,7 +104,9 @@ html
                        class="w-full uppercase text-center tracking-widest text-2xl bg-slate-900 border border-slate-700 rounded-xl py-3 font-mono font-bold focus:border-indigo-500 focus:outline-none">
                 <div class="flex gap-2">
                     <button id="btn-cancel-join" class="w-1/2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2.5 rounded-xl transition">Cancelar</button>
-                    <button id="btn-confirm-join" class="w-1/2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition">Entrar</button>
+                    <button id="btn-confirm-join" class="w-1/2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition">
+                        <span id="btn-join-label">Entrar</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -109,7 +115,7 @@ html
         <section id="screen-waiting" class="hidden flex-col items-center text-center gap-6 py-8">
             <div class="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-4">
                 <p class="text-xs uppercase tracking-widest font-bold text-slate-400">Código da Sala</p>
-                <div id="display-room-code" class="text-4xl font-mono font-black tracking-widest text-emerald-400 bg-slate-900/80 py-3 rounded-xl border border-slate-700/50">
+                <div id="display-room-code" class="text-4xl font-mono font-black tracking-widest text-emerald-400 bg-slate-900/80 py-3 rounded-xl border border-slate-700/50 select-all">
                     ----
                 </div>
                 <p class="text-xs text-slate-400">Passe este código para o segundo jogador entrar pelo celular dele.</p>
@@ -122,7 +128,7 @@ html
                     <span id="p1-status" class="text-xs px-2.5 py-1 rounded-full bg-slate-700 text-slate-400">Aguardando...</span>
                 </div>
                 <div class="flex justify-between items-center p-3 rounded-xl bg-slate-800 border border-slate-700">
-                    <span id="p2-name-display" class="font-semibold text-slate-300">Conectando...</span>
+                    <span id="p2-name-display" class="font-semibold text-slate-300">Aguardando P2...</span>
                     <span id="p2-status" class="text-xs px-2.5 py-1 rounded-full bg-slate-700 text-slate-400">Aguardando...</span>
                 </div>
             </div>
@@ -140,7 +146,6 @@ html
                 <p class="text-xs text-slate-400">Seu oponente tentará adivinhar esta palavra exata!</p>
             </div>
 
-            <!-- Visão de quem define a palavra -->
             <div id="creator-input-view" class="w-full space-y-4">
                 <div class="space-y-2">
                     <label class="block text-xs text-slate-400 text-center">Digitar Palavra Secreta (4 a 8 letras)</label>
@@ -152,7 +157,6 @@ html
                 </button>
             </div>
 
-            <!-- Visão de quem está esperando a palavra -->
             <div id="creator-waiting-view" class="hidden w-full text-center py-8 bg-slate-800/40 rounded-2xl border border-slate-800 space-y-3">
                 <div class="animate-spin w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto"></div>
                 <p id="waiting-word-text" class="text-sm font-medium text-slate-300">Aguardando o oponente definir a palavra...</p>
@@ -161,7 +165,6 @@ html
 
         <!-- 4. TELA DE JOGO / PALPITE / AO VIVO -->
         <section id="screen-gameplay" class="hidden flex-col items-center gap-3 py-2">
-            <!-- Barra Superior do Game -->
             <div class="w-full flex justify-between items-center text-xs font-medium bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/50">
                 <div class="flex items-center gap-1.5">
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -170,17 +173,12 @@ html
                 <div id="round-indicator" class="text-slate-400">Rodada 1</div>
             </div>
 
-            <!-- TABULEIRO DE JOGO (Principal ou Ao Vivo) -->
             <div id="game-board-container" class="w-full flex flex-col items-center justify-center my-auto min-h-[280px]">
-                <!-- Tabuleiro dinâmico injetado via JS -->
             </div>
 
-            <!-- TECLADO VIRTUAL DO JOGADOR (Apenas para quem adivinha) -->
             <div id="virtual-keyboard" class="w-full space-y-1.5 pt-2">
-                <!-- Linhas do Teclado geradas pelo JS -->
             </div>
 
-            <!-- PAINEL DE ESPECTADOR (Para quem criou a palavra ver ao vivo) -->
             <div id="spectator-banner" class="hidden w-full bg-indigo-950/40 border border-indigo-500/30 p-3 rounded-xl text-center space-y-1">
                 <p class="text-xs font-bold text-indigo-300 flex items-center justify-center gap-1.5">
                     <i data-lucide="eye" class="w-4 h-4"></i> TRANSMISSÃO AO VIVO
@@ -189,7 +187,7 @@ html
             </div>
         </section>
 
-        <!-- 5. MODAL / TELA DE FIM DE RODADA -->
+        <!-- 5. MODAL DE FIM DE RODADA -->
         <div id="modal-gameover" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
             <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 max-w-xs w-full text-center space-y-5 shadow-2xl">
                 <div id="gameover-icon" class="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-3xl">
@@ -213,9 +211,8 @@ html
 
     </main>
 
-    <!-- CHAT MULTIPLAYER EXPANSÍVEL -->
+    <!-- CHAT MULTIPLAYER -->
     <div id="chat-drawer" class="fixed inset-y-0 right-0 w-full max-w-xs bg-slate-800 border-l border-slate-700 z-40 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col shadow-2xl">
-        <!-- Chat Header -->
         <div class="p-4 bg-slate-900/80 border-b border-slate-700 flex justify-between items-center">
             <div class="flex items-center gap-2">
                 <i data-lucide="message-square" class="w-5 h-5 text-emerald-400"></i>
@@ -226,12 +223,10 @@ html
             </button>
         </div>
 
-        <!-- Lista de Mensagens -->
         <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3">
             <p class="text-xs text-center text-slate-500 my-2">Início do chat. Seja amigável!</p>
         </div>
 
-        <!-- Input de Mensagem -->
         <form id="chat-form" class="p-3 bg-slate-900 border-t border-slate-700 flex gap-2">
             <input type="text" id="chat-input" placeholder="Digite uma mensagem..." maxlength="100" 
                    class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
@@ -243,38 +238,100 @@ html
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Variaveis e Configurações Ambientais
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'wordle-duel-app';
+        // Variáveis globais com Fallbacks seguros
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'wordle-duel-default';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "dummy-key",
-            authDomain: "dummy.firebaseapp.com",
-            projectId: "dummy-project"
+            apiKey: "AIzaSyDemoDummyKeyForTestingOnly12345",
+            authDomain: "demo-project.firebaseapp.com",
+            projectId: "demo-project",
+            storageBucket: "demo-project.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:1234567890"
         };
 
-        // Inicialização do Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        // Inicialização com tratamento de erro
+        let app, auth, db;
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        } catch (e) {
+            console.error("Erro na inicialização do Firebase:", e);
+        }
 
-        // Estado Global do Jogo
+        // Estado Global
         let currentUser = null;
         let roomCode = null;
-        let isHost = false; // Player 1 = Host, Player 2 = Guest
-        let playerRole = null; // 'creator' ou 'guesser'
+        let isHost = false;
+        let playerRole = null;
         let roomData = null;
         let unsubscribeRoom = null;
         let unsubscribeChat = null;
 
-        // Estado da Jogada Atual
         let currentGuess = "";
         let maxAttempts = 6;
         let wordLength = 5;
-        let keyboardStates = {}; // { 'A': 'correct' | 'present' | 'absent' }
+        let keyboardStates = {};
 
-        // Elementos do DOM
+        // Exibir Notificação amigável
+        function showToast(message) {
+            const toast = document.getElementById('toast-banner');
+            document.getElementById('toast-message').innerText = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 5000);
+        }
+        document.getElementById('toast-close').addEventListener('click', () => {
+            document.getElementById('toast-banner').classList.add('hidden');
+        });
+
+        // Autenticação Segura com Tratamento de Erros e Retentativa
+        async function ensureAuth() {
+            if (currentUser) return currentUser;
+
+            return new Promise((resolve) => {
+                const unsubscribe = onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        currentUser = user;
+                        document.getElementById('room-status-badge').innerText = "Conectado";
+                        unsubscribe();
+                        resolve(user);
+                    } else {
+                        try {
+                            let cred;
+                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                cred = await signInWithCustomToken(auth, __initial_auth_token);
+                            } else {
+                                cred = await signInAnonymously(auth);
+                            }
+                            currentUser = cred.user;
+                            document.getElementById('room-status-badge').innerText = "Conectado";
+                            unsubscribe();
+                            resolve(currentUser);
+                        } catch (err) {
+                            console.warn("Falha no login com token, tentando anônimo:", err);
+                            try {
+                                const cred = await signInAnonymously(auth);
+                                currentUser = cred.user;
+                                document.getElementById('room-status-badge').innerText = "Conectado";
+                                unsubscribe();
+                                resolve(currentUser);
+                            } catch (fatalErr) {
+                                console.error("Erro fatal na autenticação:", fatalErr);
+                                showToast("Erro de conexão ao servidor. Tente novamente.");
+                                resolve(null);
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
+        // Inicializa autenticação silenciosamente ao carregar a página
+        ensureAuth();
+
         const screens = {
             lobby: document.getElementById('screen-lobby'),
             waiting: document.getElementById('screen-waiting'),
@@ -282,7 +339,6 @@ html
             gameplay: document.getElementById('screen-gameplay')
         };
 
-        // Função de troca de tela
         function showScreen(screenKey) {
             Object.keys(screens).forEach(key => {
                 screens[key].classList.add('hidden');
@@ -292,69 +348,76 @@ html
             screens[screenKey].classList.add('flex');
         }
 
-        async function initAuth() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    const cred = await signInWithCustomToken(auth, __initial_auth_token);
-                    currentUser = cred.user;
-                } else {
-                    const cred = await signInAnonymously(auth);
-                    currentUser = cred.user;
-                }
-            } catch (err) {
-                console.error("Erro na autenticação:", err);
-            }
-        }
-        initAuth();
-
-        // Função auxiliar para gerar código da sala
         function generateRoomCode() {
             return Math.floor(1000 + Math.random() * 9000).toString();
         }
 
-        // Referência do documento da sala no Firestore
         function getRoomDocRef(code) {
+            // STRICT PATH MANDATE
             return doc(db, 'artifacts', appId, 'public', 'data', 'wordle_rooms', code);
         }
 
-        // Criar Sala
+        // FIX CRÍTICO: Criar Sala
         document.getElementById('btn-create-room').addEventListener('click', async () => {
-            const name = document.getElementById('input-player-name').value.trim();
-            if (!name) return alert('Por favor, digite seu nome primeiro!');
-
-            if (!currentUser) await initAuth();
+            const nameInput = document.getElementById('input-player-name');
+            const name = nameInput.value.trim();
             
-            roomCode = generateRoomCode();
-            isHost = true;
+            if (!name) {
+                showToast('Por favor, digite seu nome ou apelido primeiro!');
+                nameInput.focus();
+                return;
+            }
 
-            const initialRoomData = {
-                code: roomCode,
-                hostId: currentUser.uid,
-                p1: { id: currentUser.uid, name: name, ready: false },
-                p2: null,
-                status: 'waiting', // waiting, setting_word, playing, gameover
-                currentRound: 1,
-                wordCreatorId: currentUser.uid, // Host começa criando a palavra
-                secretWord: "",
-                guesses: [], // Lista de tentativas do guesser [{word, feedback}]
-                liveCurrentInput: "", // Digitação ao vivo para transmissão
-                winner: null
-            };
+            const btnLabel = document.getElementById('btn-create-label');
+            const btn = document.getElementById('btn-create-room');
+
+            btn.disabled = true;
+            btnLabel.innerText = "Criando...";
 
             try {
+                const user = await ensureAuth();
+                if (!user) {
+                    throw new Error("Não foi possível conectar ao serviço.");
+                }
+
+                roomCode = generateRoomCode();
+                isHost = true;
+
+                const initialRoomData = {
+                    code: roomCode,
+                    hostId: user.uid,
+                    p1: { id: user.uid, name: name, ready: false },
+                    p2: null,
+                    status: 'waiting',
+                    currentRound: 1,
+                    wordCreatorId: user.uid,
+                    secretWord: "",
+                    guesses: [],
+                    liveCurrentInput: "",
+                    winner: null
+                };
+
                 await setDoc(getRoomDocRef(roomCode), initialRoomData);
+
                 listenToRoom(roomCode);
                 showScreen('waiting');
                 document.getElementById('display-room-code').innerText = roomCode;
+
             } catch (err) {
-                alert('Erro ao criar sala: ' + err.message);
+                console.error("Erro ao criar sala:", err);
+                showToast('Erro ao criar sala: ' + (err.message || "Tente novamente."));
+            } finally {
+                btn.disabled = false;
+                btnLabel.innerText = "Criar Sala";
             }
         });
 
-        // Abrir/Fechar Modal de Entrada
         document.getElementById('btn-join-room-modal').addEventListener('click', () => {
             const name = document.getElementById('input-player-name').value.trim();
-            if (!name) return alert('Por favor, digite seu nome primeiro!');
+            if (!name) {
+                showToast('Por favor, digite seu nome primeiro!');
+                return;
+            }
             document.getElementById('modal-join').classList.remove('hidden');
         });
 
@@ -362,45 +425,61 @@ html
             document.getElementById('modal-join').classList.add('hidden');
         });
 
-        // Confirmar Entrada na Sala
         document.getElementById('btn-confirm-join').addEventListener('click', async () => {
             const name = document.getElementById('input-player-name').value.trim();
-            const code = document.getElementById('input-room-code').value.trim();
-            if (!code || code.length !== 4) return alert('Digite um código de 4 dígitos válido!');
+            const codeInput = document.getElementById('input-room-code');
+            const code = codeInput.value.trim();
 
-            if (!currentUser) await initAuth();
+            if (!code || code.length !== 4) {
+                showToast('Digite um código de 4 dígitos válido!');
+                return;
+            }
+
+            const btnLabel = document.getElementById('btn-join-label');
+            btnLabel.innerText = "Entrando...";
 
             try {
+                const user = await ensureAuth();
+                if (!user) throw new Error("Erro na conexão.");
+
                 const roomRef = getRoomDocRef(code);
                 const snap = await getDoc(roomRef);
 
                 if (!snap.exists()) {
-                    return alert('Sala não encontrada! Verifique o código.');
+                    showToast('Sala não encontrada! Verifique o código.');
+                    btnLabel.innerText = "Entrar";
+                    return;
                 }
 
                 const data = snap.data();
-                if (data.p2 && data.p2.id !== currentUser.uid) {
-                    return alert('Esta sala já está cheia!');
+                if (data.p2 && data.p2.id !== user.uid) {
+                    showToast('Esta sala já está cheia com 2 jogadores!');
+                    btnLabel.innerText = "Entrar";
+                    return;
                 }
 
                 isHost = false;
                 roomCode = code;
 
                 await updateDoc(roomRef, {
-                    p2: { id: currentUser.uid, name: name, ready: false }
+                    p2: { id: user.uid, name: name, ready: false }
                 });
 
                 document.getElementById('modal-join').classList.add('hidden');
                 listenToRoom(roomCode);
                 showScreen('waiting');
                 document.getElementById('display-room-code').innerText = roomCode;
+
             } catch (err) {
-                alert('Erro ao entrar na sala: ' + err.message);
+                console.error("Erro ao entrar:", err);
+                showToast('Erro ao entrar na sala: ' + err.message);
+            } finally {
+                btnLabel.innerText = "Entrar";
             }
         });
 
         document.getElementById('btn-player-ready').addEventListener('click', async () => {
-            if (!roomData) return;
+            if (!roomData || !currentUser) return;
             const roomRef = getRoomDocRef(roomCode);
 
             const isP1 = roomData.p1.id === currentUser.uid;
@@ -410,31 +489,29 @@ html
                 [updateField]: true
             });
 
-            document.getElementById('btn-player-ready').disabled = true;
-            document.getElementById('btn-player-ready').classList.add('opacity-50');
-            document.getElementById('btn-player-ready').innerText = "Aguardando o outro jogador...";
+            const btnReady = document.getElementById('btn-player-ready');
+            btnReady.disabled = true;
+            btnReady.classList.add('opacity-50');
+            btnReady.innerText = "Aguardando o outro jogador...";
         });
 
-        // Escutar Mudanças em Tempo Real da Sala
         function listenToRoom(code) {
             if (unsubscribeRoom) unsubscribeRoom();
 
             unsubscribeRoom = onSnapshot(getRoomDocRef(code), (docSnap) => {
                 if (!docSnap.exists()) return;
                 roomData = docSnap.data();
-
                 updateUIByRoomState();
             }, (error) => {
-                console.error("Erro ao ouvir atualizações:", error);
+                console.error("Erro no ouvinte de sala:", error);
             });
 
-            // Conectar escuta do chat
             listenToChat(code);
         }
 
-        // Atualizar Telas/Interface conforme Mudanças do Firestore
         function updateUIByRoomState() {
-            // Atualizar Nomes na Tela de Espera
+            if (!roomData) return;
+
             if (roomData.p1) {
                 document.getElementById('p1-name-display').innerText = roomData.p1.name;
                 document.getElementById('p1-status').innerText = roomData.p1.ready ? "PRONTO" : "Aguardando";
@@ -452,17 +529,15 @@ html
 
             document.getElementById('room-status-badge').innerText = `Sala: ${roomCode} • Rodada ${roomData.currentRound || 1}`;
 
-            // Checar transição para definição de palavra
             if (roomData.status === 'waiting' && roomData.p1?.ready && roomData.p2?.ready) {
                 if (isHost) {
                     updateDoc(getRoomDocRef(roomCode), { status: 'setting_word' });
                 }
             }
 
-            // Mudar para Tela de Definir Palavra
             if (roomData.status === 'setting_word') {
                 showScreen('setWord');
-                playerRole = (currentUser.uid === roomData.wordCreatorId) ? 'creator' : 'guesser';
+                playerRole = (currentUser?.uid === roomData.wordCreatorId) ? 'creator' : 'guesser';
 
                 const creatorName = roomData.p1.id === roomData.wordCreatorId ? roomData.p1.name : roomData.p2.name;
 
@@ -478,7 +553,7 @@ html
 
             if (roomData.status === 'playing') {
                 showScreen('gameplay');
-                playerRole = (currentUser.uid === roomData.wordCreatorId) ? 'creator' : 'guesser';
+                playerRole = (currentUser?.uid === roomData.wordCreatorId) ? 'creator' : 'guesser';
                 wordLength = roomData.secretWord ? roomData.secretWord.length : 5;
 
                 if (playerRole === 'guesser') {
@@ -494,16 +569,17 @@ html
                 }
             }
 
-            // Fim de Jogo
             if (roomData.status === 'gameover') {
                 showGameOverModal();
             }
         }
 
         document.getElementById('btn-submit-word').addEventListener('click', async () => {
-            const word = document.getElementById('input-secret-word').value.trim().toUpperCase();
+            const wordInput = document.getElementById('input-secret-word');
+            const word = wordInput.value.trim().toUpperCase();
             if (word.length < 4 || word.length > 8) {
-                return alert('A palavra deve ter entre 4 e 8 letras!');
+                showToast('A palavra deve ter entre 4 e 8 letras!');
+                return;
             }
 
             await updateDoc(getRoomDocRef(roomCode), {
@@ -537,7 +613,6 @@ html
                     tile.className = `w-10 h-10 sm:w-12 sm:h-12 border-2 rounded-xl flex items-center justify-center text-lg sm:text-xl font-black uppercase transition-all duration-300`;
 
                     if (guessObj) {
-                        // Linha já submetida
                         const letter = guessObj.word[c] || "";
                         const status = guessObj.feedback[c];
                         tile.innerText = letter;
@@ -550,7 +625,6 @@ html
                             tile.className += ` bg-slate-800 border-slate-700 text-slate-400 tile-flip`;
                         }
                     } else if (isCurrentRow) {
-                        // Linha atual que o jogador está digitando
                         const letter = currentGuess[c] || "";
                         tile.innerText = letter;
                         if (letter) {
@@ -559,7 +633,6 @@ html
                             tile.className += ` border-slate-700/80 text-white bg-slate-900/40`;
                         }
                     } else {
-                        // Linhas futuras
                         tile.className += ` border-slate-800 bg-slate-900/20 text-transparent`;
                     }
 
@@ -608,7 +681,6 @@ html
                             tile.className += ` bg-slate-800 border-slate-700 text-slate-400`;
                         }
                     } else if (isCurrentRow) {
-                        // Transmissão ao vivo do que o adversário está digitando neste instante!
                         const letter = liveInput[c] || "";
                         tile.innerText = letter;
                         if (letter) {
@@ -638,7 +710,6 @@ html
             const kbContainer = document.getElementById('virtual-keyboard');
             kbContainer.innerHTML = "";
 
-            // Atualizar estado de cores do teclado com base nas jogadas passadas
             keyboardStates = {};
             (roomData.guesses || []).forEach(g => {
                 for (let i = 0; i < g.word.length; i++) {
@@ -676,7 +747,7 @@ html
 
                 kbContainer.appendChild(rowDiv);
             });
-            lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
         }
 
         async function handleKeyPress(key) {
@@ -695,13 +766,11 @@ html
 
             renderGuesserBoard();
 
-            // Enviar a digitação ao vivo para o parceiro ver na tela dele!
             await updateDoc(getRoomDocRef(roomCode), {
                 liveCurrentInput: currentGuess
             });
         }
 
-        // Suporte ao Teclado Físico (caso jogando no PC)
         window.addEventListener('keydown', (e) => {
             if (playerRole !== 'guesser' || roomData?.status !== 'playing') return;
 
@@ -722,7 +791,6 @@ html
             const guessArr = guess.split('');
             const used = new Array(wordLength).fill(false);
 
-            // 1ª Passagem: Checar posições exatas (VERDE)
             for (let i = 0; i < wordLength; i++) {
                 if (guessArr[i] === secretArr[i]) {
                     feedback[i] = 'correct';
@@ -730,7 +798,6 @@ html
                 }
             }
 
-            // 2ª Passagem: Checar posições erradas mas existentes (AMARELO)
             for (let i = 0; i < wordLength; i++) {
                 if (feedback[i] !== 'correct') {
                     for (let j = 0; j < wordLength; j++) {
@@ -749,14 +816,12 @@ html
             let newStatus = 'playing';
             let winner = null;
 
-            // Condição de Vitória (Tudo verde)
             if (feedback.every(f => f === 'correct')) {
                 newStatus = 'gameover';
                 winner = currentUser.uid;
             } else if (updatedGuesses.length >= maxAttempts) {
-                // Esgotou tentativas
                 newStatus = 'gameover';
-                winner = roomData.wordCreatorId; // Criador venceu pois o adivinhador errou
+                winner = roomData.wordCreatorId;
             }
 
             await updateDoc(getRoomDocRef(roomCode), {
@@ -774,7 +839,7 @@ html
             const secretWord = roomData.secretWord;
             document.getElementById('gameover-secret-word').innerText = secretWord;
 
-            const isWinner = roomData.winner === currentUser.uid;
+            const isWinner = roomData.winner === currentUser?.uid;
             const title = document.getElementById('gameover-title');
             const msg = document.getElementById('gameover-msg');
             const icon = document.getElementById('gameover-icon');
@@ -792,12 +857,10 @@ html
             }
         }
 
-        // Botão Próxima Rodada (Inverte os papéis de quem cria/adivinha)
         document.getElementById('btn-next-round').addEventListener('click', async () => {
             document.getElementById('modal-gameover').classList.add('hidden');
 
             if (isHost) {
-                // Alternar quem cria a palavra
                 const nextCreatorId = roomData.wordCreatorId === roomData.p1.id ? roomData.p2.id : roomData.p1.id;
 
                 await updateDoc(getRoomDocRef(roomCode), {
@@ -828,10 +891,10 @@ html
         });
 
         function getChatCollectionRef(code) {
+            // STRICT PATH MANDATE
             return collection(db, 'artifacts', appId, 'public', 'data', 'wordle_rooms', code, 'messages');
         }
 
-        // Enviar mensagem
         document.getElementById('chat-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const input = document.getElementById('chat-input');
@@ -839,17 +902,16 @@ html
             if (!text || !roomCode) return;
 
             input.value = "";
-            const playerName = (roomData.p1?.id === currentUser.uid) ? roomData.p1.name : roomData.p2?.name;
+            const playerName = (roomData.p1?.id === currentUser?.uid) ? roomData.p1.name : roomData.p2?.name;
 
             await addDoc(getChatCollectionRef(roomCode), {
-                senderId: currentUser.uid,
+                senderId: currentUser?.uid || "anon",
                 senderName: playerName || "Jogador",
                 text: text,
                 timestamp: Date.now()
             });
         });
 
-        // Escutar Chat em Tempo Real
         function listenToChat(code) {
             if (unsubscribeChat) unsubscribeChat();
 
@@ -883,8 +945,7 @@ html
             }, (err) => console.error("Erro chat:", err));
         }
 
-        // Inicializar Lucide Icons
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     </script>
 </body>
 </html>
