@@ -1,91 +1,76 @@
-html
 <!DOCTYPE html>
-<html lang="pt-BR" class="h-full w-full">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>WORDS - Jogo de Adivinhação</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Words</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
-    
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800;900&display=swap');
 
-    html, body {
-      height: 100%;
-      width: 100%;
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      font-family: 'Inter', sans-serif;
+    body {
+      font-family: 'Poppins', sans-serif;
       background-color: #121213;
       color: #ffffff;
+      touch-action: manipulation;
       user-select: none;
+      -webkit-user-select: none;
+      overflow: hidden;
     }
 
-    /* 3D Flip animation for tiles */
-    .tile {
-      perspective: 1000px;
-    }
-
-    .tile-inner {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      text-align: center;
-      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-      transform-style: preserve-3d;
-    }
-
-    .tile.flip .tile-inner {
-      transform: rotateX(180deg);
-    }
-
-    .tile-front, .tile-back {
-      position: absolute;
-      inset: 0;
-      -webkit-backface-visibility: hidden;
-      backface-visibility: hidden;
+    /* Quadradinhos no estilo Termo / Wordle */
+    .word-tile {
+      border: 2px solid #3a3a3c;
+      font-size: clamp(1.4rem, 5vw, 2.2rem);
+      font-weight: 800;
+      text-transform: uppercase;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 800;
-      border-radius: 0.5rem;
-      user-select: none;
-      text-transform: uppercase;
+      transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+      background-color: #121213;
+      border-radius: 6px;
     }
 
-    .tile-front {
-      border: 2px solid #3a3a3c;
-      background-color: #18181b;
-      color: white;
-    }
-
-    .tile-back {
-      transform: rotateX(180deg);
-      border: 2px solid transparent;
-    }
-
-    .tile.active-input .tile-front {
-      border-color: #a1a1aa;
-      box-shadow: 0 0 10px rgba(161, 161, 170, 0.3);
-    }
-
-    .tile.pop {
+    .word-tile[data-state="active"] {
+      border-color: #565758;
       animation: pop 0.1s ease-in-out;
     }
 
+    .word-tile[data-state="correct"] {
+      background-color: #538d4e !important;
+      border-color: #538d4e !important;
+      color: #ffffff;
+    }
+
+    .word-tile[data-state="present"] {
+      background-color: #b59f3b !important;
+      border-color: #b59f3b !important;
+      color: #ffffff;
+    }
+
+    .word-tile[data-state="absent"] {
+      background-color: #3a3a3c !important;
+      border-color: #3a3a3c !important;
+      color: #ffffff;
+    }
+
+    /* Animações */
     @keyframes pop {
       0% { transform: scale(1); }
       50% { transform: scale(1.08); }
       100% { transform: scale(1); }
+    }
+
+    .flip-tile {
+      animation: flip 0.5s ease forwards;
+    }
+
+    @keyframes flip {
+      0% { transform: rotateX(0deg); }
+      50% { transform: rotateX(90deg); }
+      100% { transform: rotateX(0deg); }
     }
 
     .shake {
@@ -94,851 +79,566 @@ html
 
     @keyframes shake {
       0%, 100% { transform: translateX(0); }
-      20%, 60% { transform: translateX(-5px); }
-      40%, 80% { transform: translateX(5px); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
     }
 
-    /* Letter status colors */
-    .correct { background-color: #538d4e !important; color: white !important; border-color: #538d4e !important; }
-    .present { background-color: #b59f3b !important; color: white !important; border-color: #b59f3b !important; }
-    .absent { background-color: #3a3a3c !important; color: white !important; border-color: #3a3a3c !important; }
-
-    /* Truly invisible mobile input */
-    #native-keyboard-input {
+    /* Input Invisível para Acionar o Teclado Nativo */
+    #hiddenInput {
       position: absolute;
       opacity: 0;
-      pointer-events: none;
-      top: 0;
-      left: 0;
+      top: -1000px;
+      left: -1000px;
       width: 1px;
       height: 1px;
-      z-index: -50;
-    }
-
-    .animate-pop {
-      animation: modalPop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-
-    @keyframes modalPop {
-      0% { opacity: 0; transform: scale(0.9); }
-      100% { opacity: 1; transform: scale(1); }
     }
   </style>
 </head>
-<body class="h-full w-full flex flex-col justify-between items-center p-3 select-none">
+<body class="h-screen w-screen flex flex-col justify-between items-center bg-[#121213] antialiased overflow-hidden select-none">
 
-  <!-- Top Navigation Header -->
-  <header class="w-full max-w-md shrink-0 flex justify-between items-center border-b border-zinc-800 pb-2">
-    <div class="flex items-center space-x-2">
-      <span class="text-2xl sm:text-3xl font-black tracking-wider bg-gradient-to-r from-emerald-400 via-green-500 to-yellow-400 bg-clip-text text-transparent">WORDS</span>
-      <span class="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest border border-zinc-700">DUEL</span>
+  <!-- Campo oculto para o teclado nativo em dispositivos móveis -->
+  <input type="text" id="hiddenInput" autocomplete="off" spellcheck="false" auto-capitalize="characters">
+
+  <!-- CABEÇALHO -->
+  <header class="w-full max-w-md px-4 py-3 border-b border-[#27272a] flex items-center justify-between shrink-0">
+    <div class="flex items-center gap-2">
+      <h1 class="text-2xl font-black tracking-wider text-green-500">WORDS</h1>
     </div>
-    
-    <div id="header-actions" class="hidden flex items-center gap-2">
-      <button onclick="playSound('click'); showScreen('menu-screen')" title="Home" class="text-zinc-400 hover:text-white p-2 rounded-lg bg-zinc-800/60 hover:bg-zinc-800 transition">
-        <i class="fa-solid fa-house text-sm sm:text-base"></i>
+    <div class="flex items-center gap-2">
+      <button id="btnSound" class="p-2 text-zinc-400 hover:text-white transition">
+        <svg id="iconSoundOn" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z"/></svg>
+        <svg id="iconSoundOff" class="w-6 h-6 hidden text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
       </button>
-      <button onclick="playSound('click'); openModal('account-modal')" title="Placar" class="text-zinc-400 hover:text-white p-2 rounded-lg bg-zinc-800/60 hover:bg-zinc-800 transition">
-        <i class="fa-solid fa-trophy text-sm sm:text-base"></i>
-      </button>
-      <button onclick="toggleAudio()" id="audio-toggle-btn" title="Som" class="text-zinc-400 hover:text-white p-2 rounded-lg bg-zinc-800/60 hover:bg-zinc-800 transition">
-        <i class="fa-solid fa-volume-high text-sm sm:text-base"></i>
+      <button id="btnHome" class="p-2 text-zinc-400 hover:text-white transition hidden">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 00-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 00-1 1m-6 0h6"/></svg>
       </button>
     </div>
   </header>
 
-  <main class="w-full max-w-md flex-1 flex flex-col items-center justify-center relative overflow-hidden my-auto">
+  <!-- PAINEL CENTRAL DE CONTEÚDO -->
+  <main class="flex-1 w-full max-w-md flex flex-col justify-center items-center px-4 py-2 overflow-hidden relative">
 
-    <!-- TELA 1: CADASTRO DE JOGADORES -->
-    <div id="setup-screen" class="w-full flex flex-col items-center justify-center space-y-4 my-auto p-2">
-      <div class="text-center space-y-1">
-        <h1 class="text-2xl sm:text-3xl font-extrabold">Bem-vindo ao Words!</h1>
-        <p class="text-zinc-400 text-xs sm:text-sm">Cadastre os dois jogadores para iniciar as rodadas.</p>
+    <!-- SETUP DE JOGADORES -->
+    <div id="screenPlayers" class="w-full flex flex-col gap-5 bg-[#18181b] p-6 rounded-2xl border border-zinc-800 shadow-2xl">
+      <div class="text-center">
+        <h2 class="text-xl font-bold text-white">Jogadores</h2>
+        <p class="text-xs text-zinc-400 mt-1">Digite o nome dos competidores para começar</p>
       </div>
 
-      <form id="setup-form" onsubmit="savePlayers(event)" class="w-full space-y-3 bg-zinc-900/90 p-5 rounded-2xl border border-zinc-800 shadow-xl">
+      <div class="space-y-4">
         <div>
-          <label class="block text-xs font-bold text-green-400 uppercase tracking-wider mb-1.5">
-            <i class="fa-solid fa-user-ninja mr-1"></i> Jogador 1
-          </label>
-          <input type="text" id="player1-input" required maxlength="12" placeholder="Nome do Player 1..." 
-            onkeydown="preventSpace(event)" oninput="cleanSpace(this)"
-            class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-green-500 transition font-medium text-sm">
+          <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Jogador 1</label>
+          <input type="text" id="inputP1" placeholder="Nome do Player 1" maxlength="12" class="w-full bg-[#121213] border border-zinc-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 font-medium">
         </div>
-
         <div>
-          <label class="block text-xs font-bold text-yellow-400 uppercase tracking-wider mb-1.5">
-            <i class="fa-solid fa-user-astronaut mr-1"></i> Jogador 2
-          </label>
-          <input type="text" id="player2-input" required maxlength="12" placeholder="Nome do Player 2..." 
-            onkeydown="preventSpace(event)" oninput="cleanSpace(this)"
-            class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-yellow-500 transition font-medium text-sm">
+          <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">Jogador 2</label>
+          <input type="text" id="inputP2" placeholder="Nome do Player 2" maxlength="12" class="w-full bg-[#121213] border border-zinc-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 font-medium">
         </div>
+      </div>
 
-        <button type="submit" onclick="initAudio()" class="w-full py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2 text-sm mt-1">
-          <span>Continuar</span>
-          <i class="fa-solid fa-arrow-right"></i>
-        </button>
-      </form>
+      <button id="btnSavePlayers" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3.5 rounded-lg transition shadow-lg mt-2">Continuar</button>
     </div>
 
-    <!-- TELA 2: MENU PRINCIPAL -->
-    <div id="menu-screen" class="hidden w-full flex flex-col items-center justify-center space-y-4 my-auto p-2">
-      <!-- Dashboard de Placar -->
-      <div class="w-full bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 flex justify-between items-center shadow-lg">
-        <div class="flex flex-col items-start">
-          <span class="text-[10px] text-zinc-400 font-semibold uppercase">Jogador 1</span>
-          <span id="p1-menu-name" class="font-extrabold text-green-400 text-base sm:text-lg truncate max-w-[110px]">P1</span>
-          <span id="p1-menu-score" class="text-xs bg-zinc-800 px-2.5 py-0.5 rounded-md mt-1 font-bold">0 pts</span>
-        </div>
-        <div class="text-lg font-black text-zinc-600">VS</div>
-        <div class="flex flex-col items-end">
-          <span class="text-[10px] text-zinc-400 font-semibold uppercase">Jogador 2</span>
-          <span id="p2-menu-name" class="font-extrabold text-yellow-400 text-base sm:text-lg truncate max-w-[110px]">P2</span>
-          <span id="p2-menu-score" class="text-xs bg-zinc-800 px-2.5 py-0.5 rounded-md mt-1 font-bold">0 pts</span>
-        </div>
-      </div>
-
-      <!-- Ações do Menu -->
-      <div class="w-full space-y-2.5">
-        <button onclick="playSound('click'); startNewGame();" class="w-full py-3.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-black text-base rounded-xl shadow-lg transition transform active:scale-98 flex items-center justify-center gap-3">
-          <i class="fa-solid fa-play"></i>
-          <span>START</span>
-        </button>
-
-        <button onclick="playSound('click'); openModal('account-modal');" class="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold rounded-xl transition flex items-center justify-center gap-3 border border-zinc-700 text-sm">
-          <i class="fa-solid fa-user-gear"></i>
-          <span>Account & Placares</span>
-        </button>
-
-        <button onclick="playSound('click'); openModal('config-modal');" class="w-full py-3 bg-zinc-900 text-zinc-400 font-bold rounded-xl hover:bg-zinc-800/80 transition flex items-center justify-center gap-3 border border-zinc-800 text-sm">
-          <i class="fa-solid fa-gear"></i>
-          <span>Configurações</span>
-        </button>
-      </div>
-
-      <button onclick="playSound('click'); changePlayers();" class="text-xs text-zinc-500 hover:text-zinc-300 underline mt-1 transition">
-        Trocar nomes dos jogadores
-      </button>
-    </div>
-
-    <!-- TELA 3: DEFINIÇÃO DA PALAVRA SECRETA -->
-    <div id="word-input-screen" class="hidden w-full flex flex-col items-center justify-center space-y-4 my-auto p-2">
-      <div class="text-center space-y-1">
-        <span class="text-[10px] font-bold text-green-400 uppercase tracking-widest">Vez de escolher</span>
-        <h2 id="chooser-name" class="text-2xl font-black text-white">Nome do Jogador</h2>
-        <p id="guesser-target" class="text-xs text-zinc-400">Insira a palavra secreta (3 a 9 letras).</p>
-      </div>
-
-      <form id="word-form" onsubmit="confirmSecretWord(event)" class="w-full bg-zinc-900/90 p-4 rounded-2xl border border-zinc-800 space-y-3">
+    <!-- MENU PRINCIPAL -->
+    <div id="screenMenu" class="w-full flex flex-col gap-4 hidden">
+      <div class="bg-[#18181b] p-4 rounded-xl border border-zinc-800 flex justify-around text-center mb-2">
         <div>
-          <label class="block text-xs font-semibold text-zinc-400 mb-1">Palavra Secreta</label>
-          <div class="relative">
-            <input type="password" id="secret-word-input" required minlength="3" maxlength="9" placeholder="Ex: CORAÇÃO"
-              autocomplete="off" autocorrect="off" spellcheck="false"
-              onkeydown="preventSpace(event)" oninput="cleanSpace(this)"
-              class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 pr-12 text-white uppercase font-bold tracking-widest text-base focus:outline-none focus:border-green-500 transition">
-            <button type="button" onclick="playSound('click'); toggleWordVisibility();" class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white p-2">
-              <i id="eye-icon" class="fa-solid fa-eye"></i>
-            </button>
-          </div>
-          <p class="text-[11px] text-zinc-500 mt-1.5 flex items-center gap-1">
-            <i class="fa-solid fa-circle-info text-zinc-400"></i>
-            Acentos são permitidos! Espaços são proibidos.
-          </p>
+          <div id="labelP1Name" class="text-xs text-zinc-400 font-bold uppercase">P1</div>
+          <div id="labelP1Score" class="text-2xl font-extrabold text-green-500">0</div>
         </div>
+        <div class="border-r border-zinc-700"></div>
+        <div>
+          <div id="labelP2Name" class="text-xs text-zinc-400 font-bold uppercase">P2</div>
+          <div id="labelP2Score" class="text-2xl font-extrabold text-green-500">0</div>
+        </div>
+      </div>
 
-        <button type="submit" onclick="initAudio()" class="w-full py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2 text-sm">
-          <i class="fa-solid fa-lock"></i>
-          <span>Confirmar Palavra</span>
-        </button>
-      </form>
+      <button id="btnStart" class="w-full bg-green-600 hover:bg-green-500 text-white font-black text-lg py-4 rounded-xl shadow-lg transition tracking-wide">START</button>
+      <button id="btnAccount" class="w-full bg-[#18181b] hover:bg-zinc-800 text-zinc-300 font-bold py-3.5 rounded-xl border border-zinc-800 transition">Account</button>
+      <button id="btnConfig" class="w-full bg-[#18181b] hover:bg-zinc-800 text-zinc-300 font-bold py-3.5 rounded-xl border border-zinc-800 transition">Config</button>
     </div>
 
-    <!-- TELA 4: GAMEPLAY GRID -->
-    <div id="game-screen" class="hidden w-full h-full flex flex-col justify-between items-center py-1 cursor-pointer" onclick="focusNativeKeyboard()">
-      
-      <!-- Top Info Bar sem elementos sobrepostos -->
-      <div class="w-full shrink-0 flex justify-between items-center bg-zinc-900/90 px-3.5 py-2.5 rounded-xl border border-zinc-800 mb-1 shadow-md">
-        <div class="flex flex-col items-start gap-0.5">
-          <div id="p1-game-info" class="text-xs font-bold text-zinc-300">P1: 0</div>
-          <div id="p2-game-info" class="text-xs font-bold text-zinc-300">P2: 0</div>
+    <!-- ESCOLHER PALAVRA -->
+    <div id="screenSetWord" class="w-full flex flex-col gap-4 bg-[#18181b] p-6 rounded-2xl border border-zinc-800 shadow-2xl hidden">
+      <div class="text-center">
+        <span id="badgeCreator" class="px-3 py-1 bg-green-500/10 text-green-400 text-xs font-bold rounded-full border border-green-500/20 uppercase">Vez do Jogador</span>
+        <h2 class="text-lg font-bold text-white mt-2">Escolha a Palavra Secreta</h2>
+        <p class="text-xs text-zinc-400 mt-1">A palavra deve ter de 3 a 9 letras (sem espaços)</p>
+      </div>
+
+      <div class="relative">
+        <input type="password" id="inputSecretWord" placeholder="Digite a palavra..." autocomplete="off" class="w-full bg-[#121213] border border-zinc-700 rounded-lg px-4 py-3.5 text-white focus:outline-none focus:border-green-500 font-bold text-center tracking-widest uppercase">
+        <button id="btnToggleMask" class="absolute right-3 top-3.5 text-zinc-400 text-xs uppercase font-bold">Mostrar</button>
+      </div>
+
+      <button id="btnConfirmWord" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3.5 rounded-lg transition shadow-lg">Confirmar Palavra</button>
+    </div>
+
+    <!-- TELA DO JOGO (GRID) -->
+    <div id="screenGame" class="w-full h-full flex flex-col justify-between items-center hidden py-2">
+      <!-- Placar do Topo -->
+      <div class="w-full bg-[#18181b] px-4 py-2 rounded-xl border border-zinc-800 flex justify-between items-center text-xs mb-2">
+        <span id="gameP1" class="font-bold text-zinc-300">P1: 0</span>
+        <span id="turnIndicator" class="text-green-400 font-bold bg-green-950/50 px-2.5 py-1 rounded-md border border-green-800/50">Tentando: Player</span>
+        <span id="gameP2" class="font-bold text-zinc-300">P2: 0</span>
+      </div>
+
+      <!-- Grid de Letras -->
+      <div id="gridContainer" class="w-full flex-1 flex items-center justify-center py-2">
+        <div id="grid" class="grid gap-1.5 w-full max-w-[340px] justify-center items-center"></div>
+      </div>
+    </div>
+
+    <!-- ACCOUNT / PLACAR DETALHADO -->
+    <div id="screenAccount" class="w-full flex flex-col gap-4 bg-[#18181b] p-6 rounded-2xl border border-zinc-800 hidden">
+      <h2 class="text-lg font-bold text-white text-center">Estatísticas</h2>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between py-2 border-b border-zinc-800">
+          <span id="accP1Name" class="text-zinc-400">Jogador 1</span>
+          <span id="accP1Score" class="font-bold text-green-400">0 vitórias</span>
         </div>
-
-        <div class="text-right">
-          <span class="text-[10px] text-zinc-400 uppercase font-semibold block">Tentando Adivinhar</span>
-          <span id="current-guesser-name" class="text-xs sm:text-sm font-black text-green-400">Jogador</span>
+        <div class="flex justify-between py-2 border-b border-zinc-800">
+          <span id="accP2Name" class="text-zinc-400">Jogador 2</span>
+          <span id="accP2Score" class="font-bold text-green-400">0 vitórias</span>
         </div>
       </div>
-
-      <!-- Resizable Board Grid Area -->
-      <div id="grid-container" class="w-full flex-1 flex items-center justify-center min-h-0 py-1">
-        <div id="board-grid" class="grid gap-1.5 justify-center items-center h-full max-h-full"></div>
-      </div>
-
-      <!-- Hidden Keyboard Input Trigger -->
-      <input type="text" id="native-keyboard-input" autocomplete="off" autocorrect="off" spellcheck="false" 
-        onkeydown="preventSpace(event)" oninput="handleNativeInput(this)">
-
-      <!-- Bottom Controls Area -->
-      <div class="w-full shrink-0 pt-1.5 pb-1 flex justify-between items-center gap-3">
-        <button onclick="event.stopPropagation(); playSound('delete'); handleBackspace();" 
-          class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 border border-zinc-700/60 active:scale-95 transition text-sm">
-          <i class="fa-solid fa-backspace"></i>
-          <span>Apagar</span>
-        </button>
-
-        <button onclick="event.stopPropagation(); playSound('click'); handleEnter();" 
-          class="flex-1 bg-green-600 hover:bg-green-500 text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 active:scale-95 transition shadow-lg text-sm">
-          <span>ENTER</span>
-          <i class="fa-solid fa-turn-down text-xs rotate-90"></i>
-        </button>
-      </div>
-
+      <button id="btnResetScore" class="w-full bg-red-900/40 hover:bg-red-900/60 text-red-300 font-bold py-2.5 rounded-lg border border-red-800/50 transition text-xs mt-2">Resetar Placar</button>
+      <button id="btnCloseAccount" class="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3 rounded-lg transition text-xs">Voltar</button>
     </div>
 
   </main>
 
-  <!-- MODAL: RESULTADO DA RODADA -->
-  <div id="result-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 max-w-xs w-full text-center space-y-3 shadow-2xl animate-pop">
-      <div id="result-icon-container" class="w-14 h-14 rounded-full flex items-center justify-center mx-auto text-2xl">
-        <i id="result-icon" class="fa-solid fa-trophy"></i>
+  <!-- MODAL DE RESULTADO -->
+  <div id="modalResult" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 w-full max-w-xs text-center space-y-4 shadow-2xl">
+      <div id="modalTitle" class="text-2xl font-black text-green-400">VITÓRIA!</div>
+      <p id="modalMessage" class="text-sm text-zinc-300">O jogador adivinhou a palavra!</p>
+      <div class="bg-[#121213] p-3 rounded-xl border border-zinc-800">
+        <span class="text-xs text-zinc-500 font-bold uppercase block mb-1">Palavra Secreta</span>
+        <span id="modalSecretWord" class="text-lg font-extrabold tracking-widest text-green-400 uppercase">---</span>
       </div>
-
-      <div>
-        <h3 id="result-title" class="text-xl font-black">Vitória!</h3>
-        <p id="result-message" class="text-xs text-zinc-400 mt-0.5">Acertou a palavra secreta!</p>
-      </div>
-
-      <div class="bg-zinc-800/80 p-2.5 rounded-xl border border-zinc-700/50">
-        <span class="text-[10px] text-zinc-400 uppercase block font-semibold mb-0.5">A Palavra era</span>
-        <span id="revealed-word" class="text-lg font-black tracking-widest text-green-400">WORDS</span>
-      </div>
-
-      <div class="pt-1 space-y-2">
-        <button onclick="playSound('click'); nextRound();" class="w-full py-2.5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl text-xs transition active:scale-95">
-          Próxima Rodada (Inverter Papéis)
-        </button>
-        <button onclick="playSound('click'); closeModal('result-modal'); showScreen('menu-screen');" class="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold rounded-xl text-xs transition">
-          Menu Principal
-        </button>
-      </div>
+      <button id="btnNextRound" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3.5 rounded-xl transition shadow-lg">Próxima Rodada</button>
     </div>
-  </div>
-
-  <!-- MODAL: ACCOUNT & PLACARES -->
-  <div id="account-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 max-w-xs w-full space-y-3 shadow-2xl">
-      <div class="flex justify-between items-center border-b border-zinc-800 pb-2">
-        <h3 class="text-base font-extrabold flex items-center gap-2">
-          <i class="fa-solid fa-address-card text-yellow-500"></i> Account & Placares
-        </h3>
-        <button onclick="closeModal('account-modal')" class="text-zinc-500 hover:text-white p-1">
-          <i class="fa-solid fa-xmark text-base"></i>
-        </button>
-      </div>
-
-      <div class="space-y-2">
-        <div class="bg-zinc-800/60 p-2.5 rounded-xl border border-zinc-700/50 flex justify-between items-center">
-          <div>
-            <div id="acc-p1-name" class="font-bold text-green-400 text-xs">Player 1</div>
-            <div class="text-[10px] text-zinc-400">Pontuação Total</div>
-          </div>
-          <div id="acc-p1-score" class="text-xl font-black text-white">0</div>
-        </div>
-
-        <div class="bg-zinc-800/60 p-2.5 rounded-xl border border-zinc-700/50 flex justify-between items-center">
-          <div>
-            <div id="acc-p2-name" class="font-bold text-yellow-400 text-xs">Player 2</div>
-            <div class="text-[10px] text-zinc-400">Pontuação Total</div>
-          </div>
-          <div id="acc-p2-score" class="text-xl font-black text-white">0</div>
-        </div>
-      </div>
-
-      <div class="pt-1 flex flex-col gap-2">
-        <button onclick="playSound('click'); resetScores();" class="w-full py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold rounded-xl transition">
-          <i class="fa-solid fa-rotate-right mr-1"></i> Zerar Placar
-        </button>
-        <button onclick="closeModal('account-modal')" class="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold rounded-xl transition">
-          Fechar
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL: CONFIGURAÇÕES -->
-  <div id="config-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 max-w-xs w-full space-y-3 shadow-2xl">
-      <div class="flex justify-between items-center border-b border-zinc-800 pb-2">
-        <h3 class="text-base font-extrabold flex items-center gap-2">
-          <i class="fa-solid fa-gear text-zinc-400"></i> Configurações
-        </h3>
-        <button onclick="closeModal('config-modal')" class="text-zinc-500 hover:text-white p-1">
-          <i class="fa-solid fa-xmark text-base"></i>
-        </button>
-      </div>
-
-      <div class="space-y-2 text-xs">
-        <div class="flex items-center justify-between p-2.5 bg-zinc-800/40 rounded-xl">
-          <span class="font-medium text-zinc-300">Efeitos de Áudio</span>
-          <button onclick="toggleAudio()" id="config-audio-btn" class="bg-green-600 text-white px-2.5 py-1 rounded font-bold text-[11px]">LIGADO</button>
-        </div>
-        <div class="flex items-center justify-between p-2.5 bg-zinc-800/40 rounded-xl">
-          <span class="font-medium text-zinc-300">Bloqueio de Espaço</span>
-          <span class="bg-green-900/60 text-green-400 px-2 py-0.5 rounded font-bold text-[11px]">Ativado</span>
-        </div>
-      </div>
-
-      <button onclick="closeModal('config-modal')" class="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold rounded-xl transition">
-        Fechar
-      </button>
-    </div>
-  </div>
-
-  <!-- Toast Notification -->
-  <div id="toast" class="fixed top-8 left-1/2 -translate-x-1/2 bg-white text-zinc-900 font-bold px-4 py-2 rounded-full shadow-2xl transition opacity-0 pointer-events-none z-50 text-xs border border-zinc-300">
-    Mensagem
   </div>
 
   <script>
-    /* Game State */
-    let player1 = { name: 'Player 1', score: 0 };
-    let player2 = { name: 'Player 2', score: 0 };
-    let currentChooser = 1; 
-    let secretWordOriginal = ''; 
-    let secretWordNormalized = ''; 
-    let wordLength = 5;
-    let maxAttempts = 6;
-    let currentAttempt = 0;
-    let currentGuessOriginal = '';
-    let isGameOver = false;
-    let audioEnabled = true;
-
-    /* Portuguese Accent Normalization */
-    const ACCENT_MAP = {
-      'Á':'A', 'À':'A', 'Ã':'A', 'Â':'A', 'Ä':'A',
-      'É':'E', 'È':'E', 'Ê':'E', 'Ë':'E',
-      'Í':'I', 'Ì':'I', 'Î':'I', 'Ï':'I',
-      'Ó':'O', 'Ò':'O', 'Õ':'O', 'Ô':'O', 'Ö':'O',
-      'Ú':'U', 'Ù':'U', 'Û':'U', 'Ü':'U',
-      'Ç':'C'
+    // ESTADO DO JOGO
+    const state = {
+      p1Name: "Jogador 1",
+      p2Name: "Jogador 2",
+      p1Score: 0,
+      p2Score: 0,
+      creator: 1, 
+      secretWord: "",
+      normalizedWord: "",
+      wordLength: 0,
+      maxAttempts: 6,
+      currentAttempt: 0,
+      currentGuess: "",
+      isGameOver: false,
+      soundEnabled: true
     };
 
-    /* Web Audio Synthesizer */
-    let synth, polySynth;
-    function initAudio() {
-      if (!synth && typeof Tone !== 'undefined') {
-        try {
-          Tone.start();
-          synth = new Tone.Synth({
-            oscillator: { type: 'sine' },
-            envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 }
-          }).toDestination();
-          synth.volume.value = -12;
+    // NORMALIZE PARA ACENTOS
+    function normalizeStr(str) {
+      return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+    }
 
-          polySynth = new Tone.PolySynth(Tone.Synth).toDestination();
-          polySynth.volume.value = -10;
-        } catch(e) {}
+    // AUDIOS SINTETIZADOS
+    let synth = null;
+    function initAudio() {
+      if (!synth && window.Tone) {
+        synth = new Tone.Synth().toDestination();
+        synth.volume.value = -10;
       }
     }
 
     function playSound(type) {
-      if (!audioEnabled || !synth) return;
+      if (!state.soundEnabled) return;
       try {
-        const now = Tone.now();
-        if (type === 'type') synth.triggerAttackRelease('C5', '0.03', now);
-        else if (type === 'delete') synth.triggerAttackRelease('G4', '0.04', now);
-        else if (type === 'click') synth.triggerAttackRelease('E5', '0.02', now);
-        else if (type === 'flip') synth.triggerAttackRelease('A4', '0.05', now);
-        else if (type === 'win') polySynth.triggerAttackRelease(['C5', 'E5', 'G5', 'C6'], '0.3', now);
-        else if (type === 'lose') polySynth.triggerAttackRelease(['F4', 'D#4', 'D4', 'C#4'], '0.2', now);
-      } catch(e){}
+        initAudio();
+        if (Tone.context.state !== 'running') {
+          Tone.start();
+        }
+        if (type === 'key') synth.triggerAttackRelease("C5", "8n");
+        if (type === 'delete') synth.triggerAttackRelease("G4", "8n");
+        if (type === 'invalid') synth.triggerAttackRelease("A3", "8n");
+        if (type === 'win') {
+          const now = Tone.now();
+          synth.triggerAttackRelease("C5", "8n", now);
+          synth.triggerAttackRelease("E5", "8n", now + 0.1);
+          synth.triggerAttackRelease("G5", "8n", now + 0.2);
+        }
+      } catch (e) {}
     }
 
-    function toggleAudio() {
-      audioEnabled = !audioEnabled;
-      const btn = document.getElementById('audio-toggle-btn');
-      const configBtn = document.getElementById('config-audio-btn');
-      
-      if (audioEnabled) {
-        btn.innerHTML = '<i class="fa-solid fa-volume-high text-sm sm:text-base"></i>';
-        configBtn.textContent = 'LIGADO';
-        configBtn.className = 'bg-green-600 text-white px-2.5 py-1 rounded font-bold text-[11px]';
+    // ELEMENTOS DOM
+    const screens = {
+      players: document.getElementById('screenPlayers'),
+      menu: document.getElementById('screenMenu'),
+      setWord: document.getElementById('screenSetWord'),
+      game: document.getElementById('screenGame'),
+      account: document.getElementById('screenAccount')
+    };
+
+    const hiddenInput = document.getElementById('hiddenInput');
+
+    function showScreen(screenName) {
+      Object.keys(screens).forEach(key => {
+        screens[key].classList.add('hidden');
+      });
+      screens[screenName].classList.remove('hidden');
+
+      document.getElementById('btnHome').classList.toggle('hidden', screenName === 'menu' || screenName === 'players');
+
+      if (screenName === 'game') {
+        setTimeout(() => hiddenInput.focus(), 100);
+      }
+    }
+
+    // CARREGAR DADOS SALVOS
+    function loadStorage() {
+      const savedP1 = localStorage.getItem('words_p1');
+      const savedP2 = localStorage.getItem('words_p2');
+      const savedS1 = localStorage.getItem('words_s1');
+      const savedS2 = localStorage.getItem('words_s2');
+
+      if (savedP1 && savedP2) {
+        state.p1Name = savedP1;
+        state.p2Name = savedP2;
+        state.p1Score = savedS1 ? parseInt(savedS1) : 0;
+        state.p2Score = savedS2 ? parseInt(savedS2) : 0;
+        updateUI();
+        showScreen('menu');
       } else {
-        btn.innerHTML = '<i class="fa-solid fa-volume-xmark text-sm sm:text-base"></i>';
-        configBtn.textContent = 'DESLIGADO';
-        configBtn.className = 'bg-zinc-700 text-zinc-400 px-2.5 py-1 rounded font-bold text-[11px]';
+        showScreen('players');
       }
     }
 
-    /* Space Character Filters */
-    function preventSpace(e) {
-      if (e.key === ' ' || e.code === 'Space' || e.keyCode === 32) {
-        e.preventDefault();
-        return false;
+    function updateUI() {
+      document.getElementById('labelP1Name').textContent = state.p1Name;
+      document.getElementById('labelP2Name').textContent = state.p2Name;
+      document.getElementById('labelP1Score').textContent = state.p1Score;
+      document.getElementById('labelP2Score').textContent = state.p2Score;
+
+      document.getElementById('gameP1').textContent = `${state.p1Name}: ${state.p1Score}`;
+      document.getElementById('gameP2').textContent = `${state.p2Name}: ${state.p2Score}`;
+
+      document.getElementById('accP1Name').textContent = state.p1Name;
+      document.getElementById('accP2Name').textContent = state.p2Name;
+      document.getElementById('accP1Score').textContent = `${state.p1Score} vitórias`;
+      document.getElementById('accP2Score').textContent = `${state.p2Score} vitórias`;
+    }
+
+    // REMOVER ESPAÇOS EM TEMPO REAL
+    function cleanInputWithoutSpaces(inputElement) {
+      inputElement.value = inputElement.value.replace(/\s+/g, '');
+    }
+
+    // SALVAR JOGADORES
+    document.getElementById('btnSavePlayers').addEventListener('click', () => {
+      const p1 = document.getElementById('inputP1').value.trim().replace(/\s+/g, '');
+      const p2 = document.getElementById('inputP2').value.trim().replace(/\s+/g, '');
+
+      if (!p1 || !p2) {
+        alert("Preencha o nome dos dois jogadores!");
+        return;
       }
+
+      state.p1Name = p1;
+      state.p2Name = p2;
+      localStorage.setItem('words_p1', p1);
+      localStorage.setItem('words_p2', p2);
+      localStorage.setItem('words_s1', '0');
+      localStorage.setItem('words_s2', '0');
+
+      updateUI();
+      showScreen('menu');
+    });
+
+    // INICIAR RODADA
+    document.getElementById('btnStart').addEventListener('click', () => {
+      startWordSetup();
+    });
+
+    function startWordSetup() {
+      const creatorName = state.creator === 1 ? state.p1Name : state.p2Name;
+      document.getElementById('badgeCreator').textContent = `Vez de: ${creatorName}`;
+      document.getElementById('inputSecretWord').value = "";
+      showScreen('setWord');
     }
 
-    function cleanSpace(inputEl) {
-      if (inputEl.value.includes(' ')) {
-        inputEl.value = inputEl.value.replace(/\s+/g, '');
-      }
-    }
+    // NENHUM ESPAÇO NO CAMPO DE DEFINIR PALAVRA
+    document.getElementById('inputSecretWord').addEventListener('input', (e) => {
+      cleanInputWithoutSpaces(e.target);
+    });
 
-    function normalizeChar(char) {
-      const upper = char.toUpperCase();
-      return ACCENT_MAP[upper] || upper;
-    }
-
-    function normalizeString(str) {
-      return str.split('').map(normalizeChar).join('');
-    }
-
-    /* Lifecycle & Setup */
-    window.addEventListener('DOMContentLoaded', () => {
-      loadState();
-      setupNativeKeyboardHandlers();
-      window.addEventListener('resize', adjustTileSizes);
-
-      if (player1.name && player2.name && player1.name !== 'Player 1') {
-        showScreen('menu-screen');
+    document.getElementById('btnToggleMask').addEventListener('click', () => {
+      const input = document.getElementById('inputSecretWord');
+      const btn = document.getElementById('btnToggleMask');
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = 'Esconder';
       } else {
-        showScreen('setup-screen');
+        input.type = 'password';
+        btn.textContent = 'Mostrar';
       }
     });
 
-    function loadState() {
-      const p1 = localStorage.getItem('words_p1');
-      const p2 = localStorage.getItem('words_p2');
-
-      if (p1) player1 = JSON.parse(p1);
-      if (p2) player2 = JSON.parse(p2);
-
-      updateUIInfo();
-    }
-
-    function savePlayers(e) {
-      e.preventDefault();
-      const p1Val = document.getElementById('player1-input').value.trim().replace(/\s+/g, '');
-      const p2Val = document.getElementById('player2-input').value.trim().replace(/\s+/g, '');
-
-      if (p1Val && p2Val) {
-        player1.name = p1Val;
-        player2.name = p2Val;
-
-        localStorage.setItem('words_p1', JSON.stringify(player1));
-        localStorage.setItem('words_p2', JSON.stringify(player2));
-
-        updateUIInfo();
-        showScreen('menu-screen');
-        showToast('Jogadores salvos!');
-      }
-    }
-
-    function changePlayers() {
-      document.getElementById('player1-input').value = player1.name;
-      document.getElementById('player2-input').value = player2.name;
-      showScreen('setup-screen');
-    }
-
-    function updateUIInfo() {
-      document.getElementById('p1-menu-name').textContent = player1.name;
-      document.getElementById('p1-menu-score').textContent = `${player1.score} pts`;
-      document.getElementById('p2-menu-name').textContent = player2.name;
-      document.getElementById('p2-menu-score').textContent = `${player2.score} pts`;
-
-      document.getElementById('acc-p1-name').textContent = player1.name;
-      document.getElementById('acc-p1-score').textContent = player1.score;
-      document.getElementById('acc-p2-name').textContent = player2.name;
-      document.getElementById('acc-p2-score').textContent = player2.score;
-
-      document.getElementById('p1-game-info').textContent = `${player1.name}: ${player1.score}`;
-      document.getElementById('p2-game-info').textContent = `${player2.name}: ${player2.score}`;
-    }
-
-    function showScreen(screenId) {
-      const screens = ['setup-screen', 'menu-screen', 'word-input-screen', 'game-screen'];
-      screens.forEach(id => {
-        const el = document.getElementById(id);
-        if (id === screenId) {
-          el.classList.remove('hidden');
-        } else {
-          el.classList.add('hidden');
-        }
-      });
-
-      const headerActions = document.getElementById('header-actions');
-      if (screenId === 'setup-screen') {
-        headerActions.classList.add('hidden');
-      } else {
-        headerActions.classList.remove('hidden');
-      }
-
-      if (screenId === 'game-screen') {
-        setTimeout(() => {
-          adjustTileSizes();
-          focusNativeKeyboard();
-        }, 100);
-      }
-    }
-
-    function startNewGame() {
-      showScreen('word-input-screen');
-      const chooserName = currentChooser === 1 ? player1.name : player2.name;
-      const guesserName = currentChooser === 1 ? player2.name : player1.name;
-
-      document.getElementById('chooser-name').textContent = chooserName;
-      document.getElementById('guesser-target').textContent = `${chooserName}, crie uma palavra para ${guesserName} adivinhar.`;
-      
-      const input = document.getElementById('secret-word-input');
-      input.value = '';
-      input.type = 'password';
-      document.getElementById('eye-icon').className = 'fa-solid fa-eye';
-      input.focus();
-    }
-
-    function toggleWordVisibility() {
-      const input = document.getElementById('secret-word-input');
-      const icon = document.getElementById('eye-icon');
-      if (input.type === 'password') {
-        input.type = 'text';
-        icon.className = 'fa-solid fa-eye-slash';
-      } else {
-        input.type = 'password';
-        icon.className = 'fa-solid fa-eye';
-      }
-    }
-
-    function confirmSecretWord(e) {
-      e.preventDefault();
-      const input = document.getElementById('secret-word-input');
-      let rawWord = input.value.replace(/\s+/g, '').toUpperCase();
-
-      if (rawWord.length < 3 || rawWord.length > 9) {
-        showToast('A palavra deve ter entre 3 e 9 letras!');
+    // CONFIRMAR PALAVRA SECRETA
+    document.getElementById('btnConfirmWord').addEventListener('click', () => {
+      const val = document.getElementById('inputSecretWord').value.trim().replace(/\s+/g, '');
+      if (val.length < 3 || val.length > 9) {
+        alert("A palavra deve ter de 3 a 9 letras!");
         return;
       }
 
-      secretWordOriginal = rawWord;
-      secretWordNormalized = normalizeString(rawWord);
-      wordLength = secretWordNormalized.length;
+      state.secretWord = val.toUpperCase();
+      state.normalizedWord = normalizeStr(val);
+      state.wordLength = val.length;
+      state.currentAttempt = 0;
+      state.currentGuess = "";
+      state.isGameOver = false;
 
-      setupBoardGrid();
+      setupGrid();
       
-      const guesserName = currentChooser === 1 ? player2.name : player1.name;
-      document.getElementById('current-guesser-name').textContent = guesserName;
+      const guesserName = state.creator === 1 ? state.p2Name : state.p1Name;
+      document.getElementById('turnIndicator').textContent = `Tentando: ${guesserName}`;
 
-      currentAttempt = 0;
-      currentGuessOriginal = '';
-      isGameOver = false;
+      showScreen('game');
+    });
 
-      showScreen('game-screen');
-      showToast(`Vez de ${guesserName} adivinhar!`);
-    }
+    // CONFIGURAR GRID
+    function setupGrid() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = "";
+      grid.style.gridTemplateColumns = `repeat(${state.wordLength}, minmax(0, 1fr))`;
 
-    function setupBoardGrid() {
-      const grid = document.getElementById('board-grid');
-      grid.innerHTML = '';
-      grid.style.gridTemplateColumns = `repeat(${wordLength}, minmax(0, 1fr))`;
+      const tileSizeClass = state.wordLength > 7 ? 'w-8 h-10' : state.wordLength > 5 ? 'w-10 h-12' : 'w-12 h-14';
 
-      for (let r = 0; r < maxAttempts; r++) {
-        for (let c = 0; c < wordLength; c++) {
+      for (let r = 0; r < state.maxAttempts; r++) {
+        for (let c = 0; c < state.wordLength; c++) {
           const tile = document.createElement('div');
-          tile.className = 'tile';
           tile.id = `tile-${r}-${c}`;
-
-          tile.innerHTML = `
-            <div class="tile-inner">
-              <div class="tile-front"></div>
-              <div class="tile-back"></div>
-            </div>
-          `;
-
+          tile.className = `word-tile ${tileSizeClass}`;
           grid.appendChild(tile);
         }
       }
-
-      adjustTileSizes();
-      highlightActiveTile();
     }
 
-    function adjustTileSizes() {
-      const container = document.getElementById('grid-container');
-      if (!container || container.clientHeight === 0) return;
+    // MANIPULAÇÃO DE DIGITAÇÃO E TECLADO NATIVO
+    document.getElementById('screenGame').addEventListener('click', () => {
+      hiddenInput.focus();
+    });
 
-      const availHeight = container.clientHeight - 8;
-      const availWidth = container.clientWidth - 8;
-
-      const maxTileHeight = Math.floor((availHeight - (maxAttempts * 6)) / maxAttempts);
-      const maxTileWidth = Math.floor((availWidth - (wordLength * 6)) / wordLength);
-
-      const tileSize = Math.min(maxTileHeight, maxTileWidth, 62);
-      const fontSize = Math.max(13, Math.floor(tileSize * 0.48));
-
-      document.querySelectorAll('.tile').forEach(tile => {
-        tile.style.width = `${tileSize}px`;
-        tile.style.height = `${tileSize}px`;
-      });
-
-      document.querySelectorAll('.tile-front, .tile-back').forEach(el => {
-        el.style.fontSize = `${fontSize}px`;
-      });
-    }
-
-    function focusNativeKeyboard() {
-      if (isGameOver) return;
-      const hiddenInput = document.getElementById('native-keyboard-input');
-      if (hiddenInput) {
-        hiddenInput.focus();
+    hiddenInput.addEventListener('input', (e) => {
+      if (state.isGameOver) return;
+      let val = hiddenInput.value.replace(/\s+/g, '');
+      hiddenInput.value = ""; // limpa para continuar capturando
+      
+      for (let char of val) {
+        if (/^[a-zA-ZáàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇ]$/.test(char)) {
+          addLetter(char.toUpperCase());
+        }
       }
-    }
+    });
 
-    function setupNativeKeyboardHandlers() {
-      document.addEventListener('keydown', (e) => {
-        const gameScreen = document.getElementById('game-screen');
-        if (gameScreen.classList.contains('hidden') || isGameOver) return;
+    document.addEventListener('keydown', (e) => {
+      if (screens.game.classList.contains('hidden') || state.isGameOver) return;
 
-        if (e.key === ' ' || e.code === 'Space' || e.keyCode === 32) {
-          e.preventDefault();
-          return;
-        }
-
-        initAudio();
-
-        if (e.key === 'Enter') {
-          handleEnter();
-        } else if (e.key === 'Backspace') {
-          handleBackspace();
-        } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-          handleCharInput(e.key.toUpperCase());
-        }
-      });
-    }
-
-    function handleNativeInput(inputEl) {
-      if (isGameOver) {
-        inputEl.value = '';
+      if (e.key === 'Space' || e.code === 'Space') {
+        e.preventDefault();
         return;
       }
 
-      let val = inputEl.value.replace(/\s+/g, '');
-      if (val.length > 0) {
-        const char = val.slice(-1).toUpperCase();
-        handleCharInput(char);
-      }
-      inputEl.value = '';
-    }
-
-    function handleCharInput(char) {
-      if (isGameOver) return;
-      if (char === ' ') return;
-
-      if (currentGuessOriginal.length < wordLength) {
-        currentGuessOriginal += char;
-        playSound('type');
-        updateCurrentRow();
-      }
-    }
-
-    function handleBackspace() {
-      if (isGameOver) return;
-      if (currentGuessOriginal.length > 0) {
-        currentGuessOriginal = currentGuessOriginal.slice(0, -1);
-        playSound('delete');
-        updateCurrentRow();
-      }
-    }
-
-    function handleEnter() {
-      if (isGameOver) return;
-      if (currentGuessOriginal.length === wordLength) {
+      if (e.key === 'Backspace') {
+        deleteLetter();
+      } else if (e.key === 'Enter') {
         submitGuess();
-      } else {
+      } else if (e.key.length === 1 && /^[a-zA-ZáàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇ]$/.test(e.key)) {
+        addLetter(e.key.toUpperCase());
+      }
+    });
+
+    function addLetter(letter) {
+      if (state.currentGuess.length < state.wordLength) {
+        state.currentGuess += letter;
+        playSound('key');
+        updateCurrentRow();
+      }
+    }
+
+    function deleteLetter() {
+      if (state.currentGuess.length > 0) {
+        state.currentGuess = state.currentGuess.slice(0, -1);
         playSound('delete');
-        showToast(`Faltam ${wordLength - currentGuessOriginal.length} letras!`);
-        shakeRow(currentAttempt);
+        updateCurrentRow();
       }
     }
 
     function updateCurrentRow() {
-      for (let c = 0; c < wordLength; c++) {
-        const tile = document.getElementById(`tile-${currentAttempt}-${c}`);
-        if (!tile) continue;
-        const front = tile.querySelector('.tile-front');
-        const letter = currentGuessOriginal[c] || '';
-
-        if (front.textContent !== letter) {
-          front.textContent = letter;
-          if (letter) {
-            tile.classList.add('pop');
-            setTimeout(() => tile.classList.remove('pop'), 100);
-          }
-        }
-      }
-      highlightActiveTile();
-    }
-
-    function highlightActiveTile() {
-      document.querySelectorAll('.tile').forEach(t => t.classList.remove('active-input'));
-      if (currentAttempt < maxAttempts && !isGameOver) {
-        const activeIndex = Math.min(currentGuessOriginal.length, wordLength - 1);
-        const tile = document.getElementById(`tile-${currentAttempt}-${activeIndex}`);
-        if (tile && currentGuessOriginal.length < wordLength) {
-          tile.classList.add('active-input');
-        }
-      }
-    }
-
-    function shakeRow(rowIdx) {
-      for (let c = 0; c < wordLength; c++) {
-        const tile = document.getElementById(`tile-${rowIdx}-${c}`);
+      for (let c = 0; c < state.wordLength; c++) {
+        const tile = document.getElementById(`tile-${state.currentAttempt}-${c}`);
         if (tile) {
-          tile.classList.add('shake');
-          setTimeout(() => tile.classList.remove('shake'), 400);
+          if (c < state.currentGuess.length) {
+            tile.textContent = state.currentGuess[c];
+            tile.setAttribute('data-state', 'active');
+          } else {
+            tile.textContent = "";
+            tile.removeAttribute('data-state');
+          }
         }
       }
     }
 
+    // SUBMETER TENTATIVA
     function submitGuess() {
-      const guessNorm = normalizeString(currentGuessOriginal);
-      const secretNormArr = secretWordNormalized.split('');
-      const guessNormArr = guessNorm.split('');
-      const tileStatuses = Array(wordLength).fill('absent');
+      if (state.currentGuess.length !== state.wordLength) {
+        playSound('invalid');
+        shakeRow(state.currentAttempt);
+        return;
+      }
 
-      for (let i = 0; i < wordLength; i++) {
-        if (guessNormArr[i] === secretNormArr[i]) {
-          tileStatuses[i] = 'correct';
-          secretNormArr[i] = null; 
+      const guessNorm = normalizeStr(state.currentGuess);
+      const secretNorm = state.normalizedWord;
+
+      const guessLetters = guessNorm.split('');
+      const secretLetters = secretNorm.split('');
+      const row = state.currentAttempt;
+      const letterStates = new Array(state.wordLength).fill('absent');
+
+      // Primeira passada: letras corretas (Verde)
+      for (let i = 0; i < state.wordLength; i++) {
+        if (guessLetters[i] === secretLetters[i]) {
+          letterStates[i] = 'correct';
+          secretLetters[i] = null;
         }
       }
 
-      for (let i = 0; i < wordLength; i++) {
-        if (tileStatuses[i] !== 'correct') {
-          const indexInSecret = secretNormArr.indexOf(guessNormArr[i]);
+      // Segunda passada: letras presentes em posição errada (Amarelo)
+      for (let i = 0; i < state.wordLength; i++) {
+        if (letterStates[i] !== 'correct') {
+          const indexInSecret = secretLetters.indexOf(guessLetters[i]);
           if (indexInSecret !== -1) {
-            tileStatuses[i] = 'present';
-            secretNormArr[indexInSecret] = null;
+            letterStates[i] = 'present';
+            secretLetters[indexInSecret] = null;
           }
         }
       }
 
-      isGameOver = true;
-      document.querySelectorAll('.tile').forEach(t => t.classList.remove('active-input'));
-
-      guessNormArr.forEach((normLetter, c) => {
+      // Animação de revelação
+      for (let i = 0; i < state.wordLength; i++) {
+        const tile = document.getElementById(`tile-${row}-${i}`);
         setTimeout(() => {
-          playSound('flip');
-          const tile = document.getElementById(`tile-${currentAttempt}-${c}`);
-          const back = tile.querySelector('.tile-back');
-          const status = tileStatuses[c];
+          tile.classList.add('flip-tile');
+          tile.setAttribute('data-state', letterStates[i]);
+        }, i * 200);
+      }
 
-          back.textContent = currentGuessOriginal[c];
-          back.classList.add(status);
-          tile.classList.add('flip');
+      const isWin = guessNorm === secretNorm;
 
-          if (c === wordLength - 1) {
-            setTimeout(() => {
-              checkGameEnd(guessNorm);
-            }, 350);
+      setTimeout(() => {
+        if (isWin) {
+          handleEndGame(true);
+        } else {
+          state.currentAttempt++;
+          state.currentGuess = "";
+          if (state.currentAttempt >= state.maxAttempts) {
+            handleEndGame(false);
           }
-        }, c * 200);
-      });
+        }
+      }, state.wordLength * 200 + 100);
     }
 
-    function checkGameEnd(guessNorm) {
-      const guesserIndex = currentChooser === 1 ? 2 : 1;
-      const guesserName = guesserIndex === 1 ? player1.name : player2.name;
-
-      if (guessNorm === secretWordNormalized) {
-        if (guesserIndex === 1) {
-          player1.score += 1;
-          localStorage.setItem('words_p1', JSON.stringify(player1));
-        } else {
-          player2.score += 1;
-          localStorage.setItem('words_p2', JSON.stringify(player2));
-        }
-
-        updateUIInfo();
-        playSound('win');
-        showResultModal(true, guesserName);
-      } else {
-        currentAttempt++;
-        currentGuessOriginal = '';
-
-        if (currentAttempt >= maxAttempts) {
-          playSound('lose');
-          showResultModal(false, guesserName);
-        } else {
-          isGameOver = false;
-          highlightActiveTile();
-          focusNativeKeyboard();
-        }
+    function shakeRow(row) {
+      for (let c = 0; c < state.wordLength; c++) {
+        const tile = document.getElementById(`tile-${row}-${c}`);
+        tile.classList.add('shake');
+        setTimeout(() => tile.classList.remove('shake'), 400);
       }
     }
 
-    function showResultModal(isWin, guesserName) {
-      const modal = document.getElementById('result-modal');
-      const iconContainer = document.getElementById('result-icon-container');
-      const icon = document.getElementById('result-icon');
-      const title = document.getElementById('result-title');
-      const msg = document.getElementById('result-message');
-      const revWord = document.getElementById('revealed-word');
+    // FIM DA RODADA E PONTUAÇÃO
+    function handleEndGame(isWin) {
+      state.isGameOver = true;
+      const modal = document.getElementById('modalResult');
+      const title = document.getElementById('modalTitle');
+      const msg = document.getElementById('modalMessage');
+      const wordDisplay = document.getElementById('modalSecretWord');
 
-      revWord.textContent = secretWordOriginal;
+      wordDisplay.textContent = state.secretWord;
+
+      const guesserName = state.creator === 1 ? state.p2Name : state.p1Name;
+      const creatorName = state.creator === 1 ? state.p1Name : state.p2Name;
 
       if (isWin) {
-        iconContainer.className = 'w-14 h-14 rounded-full flex items-center justify-center mx-auto text-2xl bg-green-500/20 text-green-400 border border-green-500/40';
-        icon.className = 'fa-solid fa-trophy';
-        title.textContent = 'Parabéns!';
-        title.className = 'text-xl font-black text-green-400';
-        msg.textContent = `${guesserName} acertou a palavra e ganhou 1 ponto!`;
+        playSound('win');
+        title.textContent = "VITÓRIA!";
+        title.className = "text-2xl font-black text-green-400";
+        msg.textContent = `${guesserName} adivinhou a palavra! (+1 ponto)`;
+
+        if (state.creator === 1) state.p2Score++;
+        else state.p1Score++;
+
+        localStorage.setItem('words_s1', state.p1Score);
+        localStorage.setItem('words_s2', state.p2Score);
+        updateUI();
       } else {
-        iconContainer.className = 'w-14 h-14 rounded-full flex items-center justify-center mx-auto text-2xl bg-red-500/20 text-red-400 border border-red-500/40';
-        icon.className = 'fa-solid fa-face-frown';
-        title.textContent = 'Que pena!';
-        title.className = 'text-xl font-black text-red-400';
-        msg.textContent = `${guesserName} não conseguiu adivinhar a palavra.`;
+        playSound('invalid');
+        title.textContent = "FIM DE JOGO!";
+        title.className = "text-2xl font-black text-red-400";
+        msg.textContent = `${guesserName} não conseguiu adivinhar. Ponto para ${creatorName}!`;
+
+        if (state.creator === 1) state.p1Score++;
+        else state.p2Score++;
+
+        localStorage.setItem('words_s1', state.p1Score);
+        localStorage.setItem('words_s2', state.p2Score);
+        updateUI();
       }
 
       modal.classList.remove('hidden');
     }
 
-    function nextRound() {
-      closeModal('result-modal');
-      currentChooser = currentChooser === 1 ? 2 : 1;
-      startNewGame();
-    }
+    // PRÓXIMA RODADA (INVERTE QUEM CRIA A PALAVRA)
+    document.getElementById('btnNextRound').addEventListener('click', () => {
+      document.getElementById('modalResult').classList.add('hidden');
+      state.creator = state.creator === 1 ? 2 : 1;
+      startWordSetup();
+    });
 
-    function resetScores() {
-      player1.score = 0;
-      player2.score = 0;
-      localStorage.setItem('words_p1', JSON.stringify(player1));
-      localStorage.setItem('words_p2', JSON.stringify(player2));
-      updateUIInfo();
-      showToast('Placar zerado!');
-    }
+    // NAVEGAÇÃO
+    document.getElementById('btnHome').addEventListener('click', () => {
+      showScreen('menu');
+    });
 
-    function openModal(id) {
-      document.getElementById(id).classList.remove('hidden');
-    }
+    document.getElementById('btnAccount').addEventListener('click', () => {
+      showScreen('account');
+    });
 
-    function closeModal(id) {
-      document.getElementById(id).classList.add('hidden');
-    }
+    document.getElementById('btnCloseAccount').addEventListener('click', () => {
+      showScreen('menu');
+    });
 
-    function showToast(msg) {
-      const toast = document.getElementById('toast');
-      toast.textContent = msg;
-      toast.classList.remove('opacity-0');
-      toast.classList.add('opacity-100');
+    document.getElementById('btnResetScore').addEventListener('click', () => {
+      if (confirm("Deseja realmente zerar o placar?")) {
+        state.p1Score = 0;
+        state.p2Score = 0;
+        localStorage.setItem('words_s1', '0');
+        localStorage.setItem('words_s2', '0');
+        updateUI();
+      }
+    });
 
-      setTimeout(() => {
-        toast.classList.remove('opacity-100');
-        toast.classList.add('opacity-0');
-      }, 2200);
-    }
+    // SOM TOGGLE
+    document.getElementById('btnSound').addEventListener('click', () => {
+      state.soundEnabled = !state.soundEnabled;
+      document.getElementById('iconSoundOn').classList.toggle('hidden', !state.soundEnabled);
+      document.getElementById('iconSoundOff').classList.toggle('hidden', state.soundEnabled);
+    });
+
+    // INICIALIZAÇÃO
+    loadStorage();
   </script>
 </body>
 </html>
