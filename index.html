@@ -1,310 +1,890 @@
+html
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jogo de Adivinhação</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    /* Estilos das letras */
-    .correct { background-color: #538d4e !important; color: white !important; border-color: #538d4e !important; }
-    .present { background-color: #b59f3b !important; color: white !important; border-color: #b59f3b !important; }
-    .absent { background-color: #3a3a3c !important; color: white !important; border-color: #3a3a3c !important; }
-
-    /* Grid responsivo */
-    #board-grid {
-      display: grid;
-      gap: 6px;
-      justify-content: center;
-      align-content: center;
-      margin: 0 auto;
-    }
-
-    .tile {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      box-sizing: border-box;
-    }
-
-    .tile-inner {
-      position: relative;
-      width: 100%;
-      height: 100%;
-    }
-
-    .tile-front, .tile-back {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-weight: 800;
-      text-transform: uppercase;
-      user-select: none;
-      transition: all 0.2s ease;
-    }
-
-    /* Borda ativa da célula atual */
-    .tile-active {
-      border-color: #818cf8 !important;
-      box-shadow: 0 0 10px rgba(129, 140, 248, 0.5);
-    }
-
-    /* Input invisível para acionar o teclado no mobile */
-    #native-keyboard-input {
-      position: absolute;
-      opacity: 0;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 10;
-      cursor: pointer;
-    }
-
-    .animate-pop {
-      animation: modalPop 0.15s ease-in-out;
-    }
-
-    @keyframes modalPop {
-      0% { transform: scale(0.8); }
-      50% { transform: scale(1.1); }
-      100% { transform: scale(1); }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wordle Multiplayer - Duelo de Palavras</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            touch-action: manipulation;
+        }
+        /* Animações e efeitos dos blocos do Termo */
+        .tile-flip {
+            animation: flip 0.5s ease forwards;
+        }
+        @keyframes flip {
+            0% { transform: rotateX(0deg); }
+            50% { transform: rotateX(90deg); }
+            100% { transform: rotateX(0deg); }
+        }
+        .pop {
+            animation: pop 0.15s ease-in-out;
+        }
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        /* Estilização para o Teclado Virtual */
+        .key-btn {
+            user-select: none;
+            touch-action: manipulation;
+        }
+    </style>
 </head>
-<body class="bg-zinc-950 text-white h-screen overflow-hidden flex flex-col justify-between">
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden">
 
-  <main class="w-full h-full max-w-md mx-auto p-3 flex flex-col justify-between items-center relative">
-    
-    <!-- TELA GAMEPLAY GRID -->
-    <div id="game-screen" class="w-full h-full flex flex-col justify-between items-center py-2 relative" onclick="focusNativeKeyboard()">
-      
-      <!-- Top Info Bar -->
-      <div class="w-full shrink-0 flex justify-between items-center bg-zinc-900/90 px-4 py-2.5 rounded-xl border border-zinc-800 mb-2 shadow-md z-20">
-        <div class="flex flex-col items-start gap-0.5">
-          <div id="p1-game-info" class="text-xs font-bold text-zinc-300">P1: 0 pts</div>
-          <div id="p2-game-info" class="text-xs font-bold text-zinc-300">P2: 0 pts</div>
+    <!-- Cabeçalho Principal -->
+    <header class="bg-slate-800/80 backdrop-blur border-b border-slate-700/60 p-3 sticky top-0 z-20">
+        <div class="max-w-md mx-auto flex justify-between items-center px-2">
+            <div class="flex items-center gap-2">
+                <div class="bg-emerald-500 text-slate-950 font-black p-2 rounded-xl leading-none text-xl shadow-lg shadow-emerald-500/20">
+                    W
+                </div>
+                <div>
+                    <h1 class="font-bold text-base leading-tight">Wordle Duel</h1>
+                    <p id="room-status-badge" class="text-xs text-slate-400">Offline</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button id="btn-toggle-chat" class="relative bg-slate-700 hover:bg-slate-600 p-2.5 rounded-xl transition text-slate-200">
+                    <i data-lucide="message-square" class="w-5 h-5"></i>
+                    <span id="chat-unread-dot" class="hidden absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-slate-900"></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Conteúdo Principal Dinâmico -->
+    <main class="flex-1 max-w-md w-full mx-auto p-4 flex flex-col justify-center">
+
+        <!-- 1. TELA DE LOBBY / ENTRADA -->
+        <section id="screen-lobby" class="flex flex-col gap-5 py-4">
+            <div class="text-center space-y-2">
+                <h2 class="text-2xl font-extrabold text-slate-100">Duelo de Palavras</h2>
+                <p class="text-sm text-slate-400">Escolha uma palavra pro seu amigo adivinhar e acompanhe o jogo dele ao vivo!</p>
+            </div>
+
+            <div class="bg-slate-800/60 p-5 rounded-2xl border border-slate-700/60 space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Seu Nome / Apelido</label>
+                    <input type="text" id="input-player-name" maxlength="12" placeholder="Ex: Lucas" 
+                           class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition font-medium">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <button id="btn-create-room" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-600/30 transition flex flex-col items-center justify-center gap-1">
+                        <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                        <span>Criar Sala</span>
+                    </button>
+                    <button id="btn-join-room-modal" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-indigo-600/30 transition flex flex-col items-center justify-center gap-1">
+                        <i data-lucide="log-in" class="w-5 h-5"></i>
+                        <span>Entrar em Sala</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODAL DE ENTRAR EM SALA -->
+        <div id="modal-join" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 max-w-xs w-full space-y-4">
+                <h3 class="text-lg font-bold text-center">Digite o Código da Sala</h3>
+                <input type="text" id="input-room-code" maxlength="4" placeholder="Ex: 8492" 
+                       class="w-full uppercase text-center tracking-widest text-2xl bg-slate-900 border border-slate-700 rounded-xl py-3 font-mono font-bold focus:border-indigo-500 focus:outline-none">
+                <div class="flex gap-2">
+                    <button id="btn-cancel-join" class="w-1/2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2.5 rounded-xl transition">Cancelar</button>
+                    <button id="btn-confirm-join" class="w-1/2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition">Entrar</button>
+                </div>
+            </div>
         </div>
 
-        <div class="text-right">
-          <span class="text-[10px] text-zinc-400 uppercase font-semibold block">Tentando Adivinhar</span>
-          <span id="current-guesser-name" class="text-xs sm:text-sm font-black text-green-400">Jogador 1</span>
+        <!-- 2. TELA DE AGUARDANDO OPONENTE -->
+        <section id="screen-waiting" class="hidden flex-col items-center text-center gap-6 py-8">
+            <div class="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 w-full max-w-sm space-y-4">
+                <p class="text-xs uppercase tracking-widest font-bold text-slate-400">Código da Sala</p>
+                <div id="display-room-code" class="text-4xl font-mono font-black tracking-widest text-emerald-400 bg-slate-900/80 py-3 rounded-xl border border-slate-700/50">
+                    ----
+                </div>
+                <p class="text-xs text-slate-400">Passe este código para o segundo jogador entrar pelo celular dele.</p>
+            </div>
+
+            <!-- Card de Jogadores -->
+            <div class="w-full max-w-sm bg-slate-800/40 p-4 rounded-2xl border border-slate-800 space-y-3">
+                <div class="flex justify-between items-center p-3 rounded-xl bg-slate-800 border border-slate-700">
+                    <span id="p1-name-display" class="font-semibold text-slate-300">Jogador 1</span>
+                    <span id="p1-status" class="text-xs px-2.5 py-1 rounded-full bg-slate-700 text-slate-400">Aguardando...</span>
+                </div>
+                <div class="flex justify-between items-center p-3 rounded-xl bg-slate-800 border border-slate-700">
+                    <span id="p2-name-display" class="font-semibold text-slate-300">Conectando...</span>
+                    <span id="p2-status" class="text-xs px-2.5 py-1 rounded-full bg-slate-700 text-slate-400">Aguardando...</span>
+                </div>
+            </div>
+
+            <button id="btn-player-ready" class="w-full max-w-sm bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold py-4 rounded-xl shadow-lg transition">
+                Estou Pronto!
+            </button>
+        </section>
+
+        <!-- 3. TELA DE ESTRUTURA DA PALAVRA SECRETA -->
+        <section id="screen-set-word" class="hidden flex-col items-center gap-5 py-4">
+            <div class="text-center space-y-1">
+                <span id="word-creator-badge" class="inline-block bg-indigo-500/20 text-indigo-300 text-xs font-bold px-3 py-1 rounded-full border border-indigo-500/30">Sua Vez de Criar</span>
+                <h2 class="text-xl font-bold">Escolha a Palavra Secreta</h2>
+                <p class="text-xs text-slate-400">Seu oponente tentará adivinhar esta palavra exata!</p>
+            </div>
+
+            <!-- Visão de quem define a palavra -->
+            <div id="creator-input-view" class="w-full space-y-4">
+                <div class="space-y-2">
+                    <label class="block text-xs text-slate-400 text-center">Digitar Palavra Secreta (4 a 8 letras)</label>
+                    <input type="text" id="input-secret-word" maxlength="8" placeholder="EX: TERMO" 
+                           class="w-full bg-slate-800 border-2 border-slate-700 focus:border-indigo-500 text-center uppercase tracking-widest text-2xl font-bold py-3.5 rounded-xl outline-none transition">
+                </div>
+                <button id="btn-submit-word" class="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold py-3.5 rounded-xl shadow-lg transition">
+                    Confirmar Palavra Secreta
+                </button>
+            </div>
+
+            <!-- Visão de quem está esperando a palavra -->
+            <div id="creator-waiting-view" class="hidden w-full text-center py-8 bg-slate-800/40 rounded-2xl border border-slate-800 space-y-3">
+                <div class="animate-spin w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto"></div>
+                <p id="waiting-word-text" class="text-sm font-medium text-slate-300">Aguardando o oponente definir a palavra...</p>
+            </div>
+        </section>
+
+        <!-- 4. TELA DE JOGO / PALPITE / AO VIVO -->
+        <section id="screen-gameplay" class="hidden flex-col items-center gap-3 py-2">
+            <!-- Barra Superior do Game -->
+            <div class="w-full flex justify-between items-center text-xs font-medium bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/50">
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="game-role-desc" class="text-slate-300">Tentando Adivinhar</span>
+                </div>
+                <div id="round-indicator" class="text-slate-400">Rodada 1</div>
+            </div>
+
+            <!-- TABULEIRO DE JOGO (Principal ou Ao Vivo) -->
+            <div id="game-board-container" class="w-full flex flex-col items-center justify-center my-auto min-h-[280px]">
+                <!-- Tabuleiro dinâmico injetado via JS -->
+            </div>
+
+            <!-- TECLADO VIRTUAL DO JOGADOR (Apenas para quem adivinha) -->
+            <div id="virtual-keyboard" class="w-full space-y-1.5 pt-2">
+                <!-- Linhas do Teclado geradas pelo JS -->
+            </div>
+
+            <!-- PAINEL DE ESPECTADOR (Para quem criou a palavra ver ao vivo) -->
+            <div id="spectator-banner" class="hidden w-full bg-indigo-950/40 border border-indigo-500/30 p-3 rounded-xl text-center space-y-1">
+                <p class="text-xs font-bold text-indigo-300 flex items-center justify-center gap-1.5">
+                    <i data-lucide="eye" class="w-4 h-4"></i> TRANSMISSÃO AO VIVO
+                </p>
+                <p class="text-xs text-slate-400">Você está vendo a tela do adversário em tempo real!</p>
+            </div>
+        </section>
+
+        <!-- 5. MODAL / TELA DE FIM DE RODADA -->
+        <div id="modal-gameover" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 max-w-xs w-full text-center space-y-5 shadow-2xl">
+                <div id="gameover-icon" class="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-3xl">
+                    🏆
+                </div>
+                <div>
+                    <h3 id="gameover-title" class="text-xl font-black text-white">Fim de Jogo!</h3>
+                    <p id="gameover-msg" class="text-xs text-slate-400 mt-1">O jogador acertou a palavra!</p>
+                </div>
+
+                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700/60">
+                    <span class="text-xs text-slate-400 uppercase font-bold tracking-wider">A palavra era</span>
+                    <p id="gameover-secret-word" class="text-2xl font-black text-emerald-400 tracking-widest mt-0.5">---</p>
+                </div>
+
+                <button id="btn-next-round" class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold py-3.5 rounded-xl shadow-lg transition">
+                    Próxima Rodada (Trocar Funções)
+                </button>
+            </div>
         </div>
-      </div>
 
-      <!-- Área do Grid -->
-      <div id="grid-container" class="w-full flex-1 flex items-center justify-center min-h-0 relative z-20 pointer-events-none px-2">
-        <div id="board-grid"></div>
-      </div>
+    </main>
 
-      <!-- Input Transparente para Capturar o Teclado -->
-      <input type="text" id="native-keyboard-input" autocomplete="off" autocorrect="off" spellcheck="false" 
-        onkeydown="handleKeyDown(event)" oninput="handleNativeInput(this)">
+    <!-- CHAT MULTIPLAYER EXPANSÍVEL -->
+    <div id="chat-drawer" class="fixed inset-y-0 right-0 w-full max-w-xs bg-slate-800 border-l border-slate-700 z-40 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col shadow-2xl">
+        <!-- Chat Header -->
+        <div class="p-4 bg-slate-900/80 border-b border-slate-700 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <i data-lucide="message-square" class="w-5 h-5 text-emerald-400"></i>
+                <h3 class="font-bold text-sm">Chat da Partida</h3>
+            </div>
+            <button id="btn-close-chat" class="p-1 rounded-lg hover:bg-slate-700 text-slate-400">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
 
+        <!-- Lista de Mensagens -->
+        <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3">
+            <p class="text-xs text-center text-slate-500 my-2">Início do chat. Seja amigável!</p>
+        </div>
+
+        <!-- Input de Mensagem -->
+        <form id="chat-form" class="p-3 bg-slate-900 border-t border-slate-700 flex gap-2">
+            <input type="text" id="chat-input" placeholder="Digite uma mensagem..." maxlength="100" 
+                   class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+            <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 p-2 rounded-xl text-white">
+                <i data-lucide="send" class="w-4 h-4"></i>
+            </button>
+        </form>
     </div>
 
-  </main>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-  <script>
-    // Configurações do Jogo
-    const targetWord = "TERMO".toUpperCase(); // Palavra secreta (podes alterar a lógica para dinâmica)
-    const wordLength = targetWord.length;
-    const maxAttempts = 6;
+        // Variaveis e Configurações Ambientais
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'wordle-duel-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "dummy-key",
+            authDomain: "dummy.firebaseapp.com",
+            projectId: "dummy-project"
+        };
 
-    let currentRow = 0;
-    let currentTile = 0;
-    let guesses = Array.from({ length: maxAttempts }, () => []);
-    let gameOver = false;
+        // Inicialização do Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
-    // Inicialização
-    function setupBoardGrid() {
-      const grid = document.getElementById('board-grid');
-      grid.innerHTML = '';
-      grid.style.gridTemplateColumns = `repeat(${wordLength}, minmax(0, 1fr))`;
+        // Estado Global do Jogo
+        let currentUser = null;
+        let roomCode = null;
+        let isHost = false; // Player 1 = Host, Player 2 = Guest
+        let playerRole = null; // 'creator' ou 'guesser'
+        let roomData = null;
+        let unsubscribeRoom = null;
+        let unsubscribeChat = null;
 
-      for (let r = 0; r < maxAttempts; r++) {
-        for (let c = 0; c < wordLength; c++) {
-          const tile = document.createElement('div');
-          tile.className = 'tile';
-          tile.id = `tile-${r}-${c}`;
+        // Estado da Jogada Atual
+        let currentGuess = "";
+        let maxAttempts = 6;
+        let wordLength = 5;
+        let keyboardStates = {}; // { 'A': 'correct' | 'present' | 'absent' }
 
-          tile.innerHTML = `
-            <div class="tile-inner">
-              <div class="tile-front" style="border: 2px solid #3a3a3c; background-color: #121213; border-radius: 6px;"></div>
-            </div>
-          `;
+        // Elementos do DOM
+        const screens = {
+            lobby: document.getElementById('screen-lobby'),
+            waiting: document.getElementById('screen-waiting'),
+            setWord: document.getElementById('screen-set-word'),
+            gameplay: document.getElementById('screen-gameplay')
+        };
 
-          grid.appendChild(tile);
+        // Função de troca de tela
+        function showScreen(screenKey) {
+            Object.keys(screens).forEach(key => {
+                screens[key].classList.add('hidden');
+                screens[key].classList.remove('flex');
+            });
+            screens[screenKey].classList.remove('hidden');
+            screens[screenKey].classList.add('flex');
         }
-      }
 
-      adjustTileSizes();
-      highlightActiveTile();
-    }
-
-    // Ajusta o tamanho das células para caber em qualquer ecrã
-    function adjustTileSizes() {
-      const container = document.getElementById('grid-container');
-      if (!container || container.clientHeight === 0) return;
-
-      const gap = 6;
-      const padding = 16;
-
-      const availHeight = container.clientHeight - padding;
-      const availWidth = container.clientWidth - padding;
-
-      const maxTileHeight = Math.floor((availHeight - ((maxAttempts - 1) * gap)) / maxAttempts);
-      const maxTileWidth = Math.floor((availWidth - ((wordLength - 1) * gap)) / wordLength);
-
-      const tileSize = Math.max(28, Math.min(maxTileHeight, maxTileWidth, 62));
-      const fontSize = Math.max(14, Math.floor(tileSize * 0.52));
-
-      document.querySelectorAll('.tile').forEach(tile => {
-        tile.style.width = `${tileSize}px`;
-        tile.style.height = `${tileSize}px`;
-      });
-
-      document.querySelectorAll('.tile-front').forEach(el => {
-        el.style.fontSize = `${fontSize}px`;
-      });
-    }
-
-    // Foca o input para abrir o teclado no mobile
-    function focusNativeKeyboard() {
-      const input = document.getElementById('native-keyboard-input');
-      if (input) input.focus();
-    }
-
-    // Destaque da célula atual
-    function highlightActiveTile() {
-      document.querySelectorAll('.tile-front').forEach(el => el.classList.remove('tile-active'));
-      if (gameOver || currentRow >= maxAttempts) return;
-
-      const activeTile = document.querySelector(`#tile-${currentRow}-${currentTile} .tile-front`);
-      if (activeTile) {
-        activeTile.classList.add('tile-active');
-      }
-    }
-
-    // Gestão do teclado
-    function handleKeyDown(e) {
-      if (gameOver) return;
-
-      if (e.key === 'Enter') {
-        submitGuess();
-      } else if (e.key === 'Backspace') {
-        deleteLetter();
-      } else if (/^[a-zA-Z]$/.test(e.key)) {
-        addLetter(e.key.toUpperCase());
-      }
-    }
-
-    function handleNativeInput(input) {
-      const value = input.value;
-      if (!value) return;
-
-      const lastChar = value.slice(-1);
-      if (/^[a-zA-Z]$/.test(lastChar)) {
-        addLetter(lastChar.toUpperCase());
-      }
-      input.value = '';
-    }
-
-    function addLetter(letter) {
-      if (currentTile < wordLength && currentRow < maxAttempts) {
-        guesses[currentRow][currentTile] = letter;
-        const tileFront = document.querySelector(`#tile-${currentRow}-${currentTile} .tile-front`);
-        tileFront.textContent = letter;
-        tileFront.classList.add('animate-pop');
-
-        if (currentTile < wordLength - 1) {
-          currentTile++;
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    const cred = await signInWithCustomToken(auth, __initial_auth_token);
+                    currentUser = cred.user;
+                } else {
+                    const cred = await signInAnonymously(auth);
+                    currentUser = cred.user;
+                }
+            } catch (err) {
+                console.error("Erro na autenticação:", err);
+            }
         }
-        highlightActiveTile();
-      }
-    }
+        initAuth();
 
-    function deleteLetter() {
-      if (currentRow >= maxAttempts) return;
-
-      const tileFrontCurrent = document.querySelector(`#tile-${currentRow}-${currentTile} .tile-front`);
-      
-      if (tileFrontCurrent && tileFrontCurrent.textContent !== '') {
-        guesses[currentRow][currentTile] = '';
-        tileFrontCurrent.textContent = '';
-        tileFrontCurrent.classList.remove('animate-pop');
-      } else if (currentTile > 0) {
-        currentTile--;
-        guesses[currentRow][currentTile] = '';
-        const tileFrontPrev = document.querySelector(`#tile-${currentRow}-${currentTile} .tile-front`);
-        tileFrontPrev.textContent = '';
-        tileFrontPrev.classList.remove('animate-pop');
-      }
-      highlightActiveTile();
-    }
-
-    function submitGuess() {
-      const currentGuess = guesses[currentRow].join('');
-
-      if (currentGuess.length !== wordLength) {
-        alert('Preencha todas as letras antes de confirmar!');
-        return;
-      }
-
-      // Validação das cores
-      const targetArr = targetWord.split('');
-      const guessArr = guesses[currentRow];
-      const result = Array(wordLength).fill('absent');
-
-      // 1. Marca os corretos (verdes)
-      guessArr.forEach((char, i) => {
-        if (char === targetArr[i]) {
-          result[i] = 'correct';
-          targetArr[i] = null;
+        // Função auxiliar para gerar código da sala
+        function generateRoomCode() {
+            return Math.floor(1000 + Math.random() * 9000).toString();
         }
-      });
 
-      // 2. Marca os presentes (amarelos)
-      guessArr.forEach((char, i) => {
-        if (result[i] !== 'correct') {
-          const targetIndex = targetArr.indexOf(char);
-          if (targetIndex !== -1) {
-            result[i] = 'present';
-            targetArr[targetIndex] = null;
-          }
+        // Referência do documento da sala no Firestore
+        function getRoomDocRef(code) {
+            return doc(db, 'artifacts', appId, 'public', 'data', 'wordle_rooms', code);
         }
-      });
 
-      // Aplicação visual das cores
-      result.forEach((status, i) => {
-        const tileFront = document.querySelector(`#tile-${currentRow}-${i} .tile-front`);
-        tileFront.classList.add(status);
-      });
+        // Criar Sala
+        document.getElementById('btn-create-room').addEventListener('click', async () => {
+            const name = document.getElementById('input-player-name').value.trim();
+            if (!name) return alert('Por favor, digite seu nome primeiro!');
 
-      if (currentGuess === targetWord) {
-        gameOver = true;
-        setTimeout(() => alert('Parabéns! Adivinhaste a palavra!'), 200);
-      } else if (currentRow === maxAttempts - 1) {
-        gameOver = true;
-        setTimeout(() => alert(`Fim de jogo! A palavra era ${targetWord}`), 200);
-      } else {
-        currentRow++;
-        currentTile = 0;
-        highlightActiveTile();
-      }
-    }
+            if (!currentUser) await initAuth();
+            
+            roomCode = generateRoomCode();
+            isHost = true;
 
-    // Listeners Globais
-    window.addEventListener('resize', adjustTileSizes);
-    window.addEventListener('DOMContentLoaded', () => {
-      setupBoardGrid();
-      focusNativeKeyboard();
-    });
-  </script>
+            const initialRoomData = {
+                code: roomCode,
+                hostId: currentUser.uid,
+                p1: { id: currentUser.uid, name: name, ready: false },
+                p2: null,
+                status: 'waiting', // waiting, setting_word, playing, gameover
+                currentRound: 1,
+                wordCreatorId: currentUser.uid, // Host começa criando a palavra
+                secretWord: "",
+                guesses: [], // Lista de tentativas do guesser [{word, feedback}]
+                liveCurrentInput: "", // Digitação ao vivo para transmissão
+                winner: null
+            };
+
+            try {
+                await setDoc(getRoomDocRef(roomCode), initialRoomData);
+                listenToRoom(roomCode);
+                showScreen('waiting');
+                document.getElementById('display-room-code').innerText = roomCode;
+            } catch (err) {
+                alert('Erro ao criar sala: ' + err.message);
+            }
+        });
+
+        // Abrir/Fechar Modal de Entrada
+        document.getElementById('btn-join-room-modal').addEventListener('click', () => {
+            const name = document.getElementById('input-player-name').value.trim();
+            if (!name) return alert('Por favor, digite seu nome primeiro!');
+            document.getElementById('modal-join').classList.remove('hidden');
+        });
+
+        document.getElementById('btn-cancel-join').addEventListener('click', () => {
+            document.getElementById('modal-join').classList.add('hidden');
+        });
+
+        // Confirmar Entrada na Sala
+        document.getElementById('btn-confirm-join').addEventListener('click', async () => {
+            const name = document.getElementById('input-player-name').value.trim();
+            const code = document.getElementById('input-room-code').value.trim();
+            if (!code || code.length !== 4) return alert('Digite um código de 4 dígitos válido!');
+
+            if (!currentUser) await initAuth();
+
+            try {
+                const roomRef = getRoomDocRef(code);
+                const snap = await getDoc(roomRef);
+
+                if (!snap.exists()) {
+                    return alert('Sala não encontrada! Verifique o código.');
+                }
+
+                const data = snap.data();
+                if (data.p2 && data.p2.id !== currentUser.uid) {
+                    return alert('Esta sala já está cheia!');
+                }
+
+                isHost = false;
+                roomCode = code;
+
+                await updateDoc(roomRef, {
+                    p2: { id: currentUser.uid, name: name, ready: false }
+                });
+
+                document.getElementById('modal-join').classList.add('hidden');
+                listenToRoom(roomCode);
+                showScreen('waiting');
+                document.getElementById('display-room-code').innerText = roomCode;
+            } catch (err) {
+                alert('Erro ao entrar na sala: ' + err.message);
+            }
+        });
+
+        document.getElementById('btn-player-ready').addEventListener('click', async () => {
+            if (!roomData) return;
+            const roomRef = getRoomDocRef(roomCode);
+
+            const isP1 = roomData.p1.id === currentUser.uid;
+            const updateField = isP1 ? 'p1.ready' : 'p2.ready';
+
+            await updateDoc(roomRef, {
+                [updateField]: true
+            });
+
+            document.getElementById('btn-player-ready').disabled = true;
+            document.getElementById('btn-player-ready').classList.add('opacity-50');
+            document.getElementById('btn-player-ready').innerText = "Aguardando o outro jogador...";
+        });
+
+        // Escutar Mudanças em Tempo Real da Sala
+        function listenToRoom(code) {
+            if (unsubscribeRoom) unsubscribeRoom();
+
+            unsubscribeRoom = onSnapshot(getRoomDocRef(code), (docSnap) => {
+                if (!docSnap.exists()) return;
+                roomData = docSnap.data();
+
+                updateUIByRoomState();
+            }, (error) => {
+                console.error("Erro ao ouvir atualizações:", error);
+            });
+
+            // Conectar escuta do chat
+            listenToChat(code);
+        }
+
+        // Atualizar Telas/Interface conforme Mudanças do Firestore
+        function updateUIByRoomState() {
+            // Atualizar Nomes na Tela de Espera
+            if (roomData.p1) {
+                document.getElementById('p1-name-display').innerText = roomData.p1.name;
+                document.getElementById('p1-status').innerText = roomData.p1.ready ? "PRONTO" : "Aguardando";
+                document.getElementById('p1-status').className = `text-xs px-2.5 py-1 rounded-full font-bold ${roomData.p1.ready ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-700 text-slate-400'}`;
+            }
+
+            if (roomData.p2) {
+                document.getElementById('p2-name-display').innerText = roomData.p2.name;
+                document.getElementById('p2-status').innerText = roomData.p2.ready ? "PRONTO" : "Aguardando";
+                document.getElementById('p2-status').className = `text-xs px-2.5 py-1 rounded-full font-bold ${roomData.p2.ready ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-700 text-slate-400'}`;
+            } else {
+                document.getElementById('p2-name-display').innerText = "Aguardando P2...";
+                document.getElementById('p2-status').innerText = "Conectando";
+            }
+
+            document.getElementById('room-status-badge').innerText = `Sala: ${roomCode} • Rodada ${roomData.currentRound || 1}`;
+
+            // Checar transição para definição de palavra
+            if (roomData.status === 'waiting' && roomData.p1?.ready && roomData.p2?.ready) {
+                if (isHost) {
+                    updateDoc(getRoomDocRef(roomCode), { status: 'setting_word' });
+                }
+            }
+
+            // Mudar para Tela de Definir Palavra
+            if (roomData.status === 'setting_word') {
+                showScreen('setWord');
+                playerRole = (currentUser.uid === roomData.wordCreatorId) ? 'creator' : 'guesser';
+
+                const creatorName = roomData.p1.id === roomData.wordCreatorId ? roomData.p1.name : roomData.p2.name;
+
+                if (playerRole === 'creator') {
+                    document.getElementById('creator-input-view').classList.remove('hidden');
+                    document.getElementById('creator-waiting-view').classList.add('hidden');
+                } else {
+                    document.getElementById('creator-input-view').classList.add('hidden');
+                    document.getElementById('creator-waiting-view').classList.remove('hidden');
+                    document.getElementById('waiting-word-text').innerText = `${creatorName} está digitando a palavra secreta...`;
+                }
+            }
+
+            if (roomData.status === 'playing') {
+                showScreen('gameplay');
+                playerRole = (currentUser.uid === roomData.wordCreatorId) ? 'creator' : 'guesser';
+                wordLength = roomData.secretWord ? roomData.secretWord.length : 5;
+
+                if (playerRole === 'guesser') {
+                    document.getElementById('game-role-desc').innerText = "Sua Vez de Adivinhar!";
+                    document.getElementById('virtual-keyboard').classList.remove('hidden');
+                    document.getElementById('spectator-banner').classList.add('hidden');
+                    renderGuesserBoard();
+                } else {
+                    document.getElementById('game-role-desc').innerText = "Modo Espectador (Ao Vivo)";
+                    document.getElementById('virtual-keyboard').classList.add('hidden');
+                    document.getElementById('spectator-banner').classList.remove('hidden');
+                    renderSpectatorBoard();
+                }
+            }
+
+            // Fim de Jogo
+            if (roomData.status === 'gameover') {
+                showGameOverModal();
+            }
+        }
+
+        document.getElementById('btn-submit-word').addEventListener('click', async () => {
+            const word = document.getElementById('input-secret-word').value.trim().toUpperCase();
+            if (word.length < 4 || word.length > 8) {
+                return alert('A palavra deve ter entre 4 e 8 letras!');
+            }
+
+            await updateDoc(getRoomDocRef(roomCode), {
+                secretWord: word,
+                guesses: [],
+                liveCurrentInput: "",
+                status: 'playing'
+            });
+        });
+
+        function renderGuesserBoard() {
+            const container = document.getElementById('game-board-container');
+            container.innerHTML = "";
+
+            const boardGrid = document.createElement('div');
+            boardGrid.className = `grid gap-1.5 p-2`;
+            boardGrid.style.gridTemplateRows = `repeat(${maxAttempts}, minmax(0, 1fr))`;
+
+            const guesses = roomData.guesses || [];
+
+            for (let r = 0; r < maxAttempts; r++) {
+                const row = document.createElement('div');
+                row.className = `grid gap-1.5 justify-center`;
+                row.style.gridTemplateColumns = `repeat(${wordLength}, minmax(0, 1fr))`;
+
+                const guessObj = guesses[r];
+                const isCurrentRow = (r === guesses.length);
+
+                for (let c = 0; c < wordLength; c++) {
+                    const tile = document.createElement('div');
+                    tile.className = `w-10 h-10 sm:w-12 sm:h-12 border-2 rounded-xl flex items-center justify-center text-lg sm:text-xl font-black uppercase transition-all duration-300`;
+
+                    if (guessObj) {
+                        // Linha já submetida
+                        const letter = guessObj.word[c] || "";
+                        const status = guessObj.feedback[c];
+                        tile.innerText = letter;
+
+                        if (status === 'correct') {
+                            tile.className += ` bg-emerald-600 border-emerald-500 text-white tile-flip`;
+                        } else if (status === 'present') {
+                            tile.className += ` bg-amber-500 border-amber-400 text-white tile-flip`;
+                        } else {
+                            tile.className += ` bg-slate-800 border-slate-700 text-slate-400 tile-flip`;
+                        }
+                    } else if (isCurrentRow) {
+                        // Linha atual que o jogador está digitando
+                        const letter = currentGuess[c] || "";
+                        tile.innerText = letter;
+                        if (letter) {
+                            tile.className += ` border-slate-400 text-white pop bg-slate-800/80`;
+                        } else {
+                            tile.className += ` border-slate-700/80 text-white bg-slate-900/40`;
+                        }
+                    } else {
+                        // Linhas futuras
+                        tile.className += ` border-slate-800 bg-slate-900/20 text-transparent`;
+                    }
+
+                    row.appendChild(tile);
+                }
+                boardGrid.appendChild(row);
+            }
+
+            container.appendChild(boardGrid);
+            renderKeyboard();
+        }
+
+        function renderSpectatorBoard() {
+            const container = document.getElementById('game-board-container');
+            container.innerHTML = "";
+
+            const boardGrid = document.createElement('div');
+            boardGrid.className = `grid gap-1.5 p-2 opacity-95`;
+            boardGrid.style.gridTemplateRows = `repeat(${maxAttempts}, minmax(0, 1fr))`;
+
+            const guesses = roomData.guesses || [];
+            const liveInput = roomData.liveCurrentInput || "";
+
+            for (let r = 0; r < maxAttempts; r++) {
+                const row = document.createElement('div');
+                row.className = `grid gap-1.5 justify-center`;
+                row.style.gridTemplateColumns = `repeat(${wordLength}, minmax(0, 1fr))`;
+
+                const guessObj = guesses[r];
+                const isCurrentRow = (r === guesses.length);
+
+                for (let c = 0; c < wordLength; c++) {
+                    const tile = document.createElement('div');
+                    tile.className = `w-10 h-10 sm:w-12 sm:h-12 border-2 rounded-xl flex items-center justify-center text-lg sm:text-xl font-black uppercase transition-all duration-300`;
+
+                    if (guessObj) {
+                        const letter = guessObj.word[c] || "";
+                        const status = guessObj.feedback[c];
+                        tile.innerText = letter;
+
+                        if (status === 'correct') {
+                            tile.className += ` bg-emerald-600 border-emerald-500 text-white`;
+                        } else if (status === 'present') {
+                            tile.className += ` bg-amber-500 border-amber-400 text-white`;
+                        } else {
+                            tile.className += ` bg-slate-800 border-slate-700 text-slate-400`;
+                        }
+                    } else if (isCurrentRow) {
+                        // Transmissão ao vivo do que o adversário está digitando neste instante!
+                        const letter = liveInput[c] || "";
+                        tile.innerText = letter;
+                        if (letter) {
+                            tile.className += ` border-indigo-500 text-indigo-200 bg-indigo-950/40 pop`;
+                        } else {
+                            tile.className += ` border-slate-800 bg-slate-900/20 text-transparent`;
+                        }
+                    } else {
+                        tile.className += ` border-slate-800 bg-slate-900/20 text-transparent`;
+                    }
+
+                    row.appendChild(tile);
+                }
+                boardGrid.appendChild(row);
+            }
+
+            container.appendChild(boardGrid);
+        }
+
+        const keyboardRows = [
+            ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+            ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
+            ["ENTER", "Z", "X", "C", "V", "B", "N", "M", "DELETE"]
+        ];
+
+        function renderKeyboard() {
+            const kbContainer = document.getElementById('virtual-keyboard');
+            kbContainer.innerHTML = "";
+
+            // Atualizar estado de cores do teclado com base nas jogadas passadas
+            keyboardStates = {};
+            (roomData.guesses || []).forEach(g => {
+                for (let i = 0; i < g.word.length; i++) {
+                    const letter = g.word[i];
+                    const status = g.feedback[i];
+                    
+                    if (status === 'correct') {
+                        keyboardStates[letter] = 'bg-emerald-600 text-white border-emerald-500';
+                    } else if (status === 'present' && keyboardStates[letter] !== 'bg-emerald-600 text-white border-emerald-500') {
+                        keyboardStates[letter] = 'bg-amber-500 text-white border-amber-400';
+                    } else if (!keyboardStates[letter]) {
+                        keyboardStates[letter] = 'bg-slate-900/80 text-slate-600 border-slate-800';
+                    }
+                }
+            });
+
+            keyboardRows.forEach(row => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = "flex justify-center gap-1 my-0.5 touch-action-none";
+
+                row.forEach(key => {
+                    const btn = document.createElement('button');
+                    const isSpecial = key === "ENTER" || key === "DELETE";
+
+                    btn.className = `key-btn ${isSpecial ? 'px-2.5 text-xs font-bold' : 'w-8 sm:w-10 text-sm font-extrabold'} h-12 rounded-xl border flex items-center justify-center transition active:scale-90 `;
+                    
+                    const colorClass = keyboardStates[key] || 'bg-slate-800 hover:bg-slate-700 border-slate-700/70 text-slate-200';
+                    btn.className += colorClass;
+
+                    btn.innerHTML = key === "DELETE" ? '<i data-lucide="delete" class="w-4 h-4"></i>' : key;
+
+                    btn.addEventListener('click', () => handleKeyPress(key));
+                    rowDiv.appendChild(btn);
+                });
+
+                kbContainer.appendChild(rowDiv);
+            });
+            lucide.createIcons();
+        }
+
+        async function handleKeyPress(key) {
+            if (playerRole !== 'guesser' || roomData.status !== 'playing') return;
+
+            if (key === 'DELETE') {
+                currentGuess = currentGuess.slice(0, -1);
+            } else if (key === 'ENTER') {
+                if (currentGuess.length === wordLength) {
+                    await submitGuess();
+                    return;
+                }
+            } else if (currentGuess.length < wordLength && /^[A-Z]$/.test(key)) {
+                currentGuess += key;
+            }
+
+            renderGuesserBoard();
+
+            // Enviar a digitação ao vivo para o parceiro ver na tela dele!
+            await updateDoc(getRoomDocRef(roomCode), {
+                liveCurrentInput: currentGuess
+            });
+        }
+
+        // Suporte ao Teclado Físico (caso jogando no PC)
+        window.addEventListener('keydown', (e) => {
+            if (playerRole !== 'guesser' || roomData?.status !== 'playing') return;
+
+            if (e.key === 'Enter') handleKeyPress('ENTER');
+            else if (e.key === 'Backspace') handleKeyPress('DELETE');
+            else {
+                const key = e.key.toUpperCase();
+                if (/^[A-Z]$/.test(key)) handleKeyPress(key);
+            }
+        });
+
+        async function submitGuess() {
+            const secret = roomData.secretWord;
+            const guess = currentGuess;
+            const feedback = new Array(wordLength).fill('absent');
+
+            const secretArr = secret.split('');
+            const guessArr = guess.split('');
+            const used = new Array(wordLength).fill(false);
+
+            // 1ª Passagem: Checar posições exatas (VERDE)
+            for (let i = 0; i < wordLength; i++) {
+                if (guessArr[i] === secretArr[i]) {
+                    feedback[i] = 'correct';
+                    used[i] = true;
+                }
+            }
+
+            // 2ª Passagem: Checar posições erradas mas existentes (AMARELO)
+            for (let i = 0; i < wordLength; i++) {
+                if (feedback[i] !== 'correct') {
+                    for (let j = 0; j < wordLength; j++) {
+                        if (!used[j] && guessArr[i] === secretArr[j]) {
+                            feedback[i] = 'present';
+                            used[j] = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            const updatedGuesses = [...(roomData.guesses || []), { word: guess, feedback: feedback }];
+            currentGuess = "";
+
+            let newStatus = 'playing';
+            let winner = null;
+
+            // Condição de Vitória (Tudo verde)
+            if (feedback.every(f => f === 'correct')) {
+                newStatus = 'gameover';
+                winner = currentUser.uid;
+            } else if (updatedGuesses.length >= maxAttempts) {
+                // Esgotou tentativas
+                newStatus = 'gameover';
+                winner = roomData.wordCreatorId; // Criador venceu pois o adivinhador errou
+            }
+
+            await updateDoc(getRoomDocRef(roomCode), {
+                guesses: updatedGuesses,
+                liveCurrentInput: "",
+                status: newStatus,
+                winner: winner
+            });
+        }
+
+        function showGameOverModal() {
+            const modal = document.getElementById('modal-gameover');
+            modal.classList.remove('hidden');
+
+            const secretWord = roomData.secretWord;
+            document.getElementById('gameover-secret-word').innerText = secretWord;
+
+            const isWinner = roomData.winner === currentUser.uid;
+            const title = document.getElementById('gameover-title');
+            const msg = document.getElementById('gameover-msg');
+            const icon = document.getElementById('gameover-icon');
+
+            if (isWinner) {
+                title.innerText = "Você Venceu! 🎉";
+                msg.innerText = "Excelente raciocínio e estratégia!";
+                icon.innerText = "🏆";
+                icon.className = "w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-3xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+            } else {
+                title.innerText = "Fim da Rodada! 💥";
+                msg.innerText = "Seu oponente levou a melhor nessa rodada.";
+                icon.innerText = "😅";
+                icon.className = "w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-3xl bg-amber-500/20 text-amber-400 border border-amber-500/30";
+            }
+        }
+
+        // Botão Próxima Rodada (Inverte os papéis de quem cria/adivinha)
+        document.getElementById('btn-next-round').addEventListener('click', async () => {
+            document.getElementById('modal-gameover').classList.add('hidden');
+
+            if (isHost) {
+                // Alternar quem cria a palavra
+                const nextCreatorId = roomData.wordCreatorId === roomData.p1.id ? roomData.p2.id : roomData.p1.id;
+
+                await updateDoc(getRoomDocRef(roomCode), {
+                    status: 'setting_word',
+                    wordCreatorId: nextCreatorId,
+                    secretWord: "",
+                    guesses: [],
+                    liveCurrentInput: "",
+                    winner: null,
+                    currentRound: (roomData.currentRound || 1) + 1
+                });
+            }
+        });
+
+        const chatDrawer = document.getElementById('chat-drawer');
+        const chatUnreadDot = document.getElementById('chat-unread-dot');
+        let isChatOpen = false;
+
+        document.getElementById('btn-toggle-chat').addEventListener('click', () => {
+            isChatOpen = !isChatOpen;
+            chatDrawer.classList.toggle('translate-x-full', !isChatOpen);
+            if (isChatOpen) chatUnreadDot.classList.add('hidden');
+        });
+
+        document.getElementById('btn-close-chat').addEventListener('click', () => {
+            isChatOpen = false;
+            chatDrawer.classList.add('translate-x-full');
+        });
+
+        function getChatCollectionRef(code) {
+            return collection(db, 'artifacts', appId, 'public', 'data', 'wordle_rooms', code, 'messages');
+        }
+
+        // Enviar mensagem
+        document.getElementById('chat-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text || !roomCode) return;
+
+            input.value = "";
+            const playerName = (roomData.p1?.id === currentUser.uid) ? roomData.p1.name : roomData.p2?.name;
+
+            await addDoc(getChatCollectionRef(roomCode), {
+                senderId: currentUser.uid,
+                senderName: playerName || "Jogador",
+                text: text,
+                timestamp: Date.now()
+            });
+        });
+
+        // Escutar Chat em Tempo Real
+        function listenToChat(code) {
+            if (unsubscribeChat) unsubscribeChat();
+
+            unsubscribeChat = onSnapshot(getChatCollectionRef(code), (snap) => {
+                const messages = [];
+                snap.forEach(doc => messages.push(doc.data()));
+                messages.sort((a, b) => a.timestamp - b.timestamp);
+
+                const container = document.getElementById('chat-messages');
+                container.innerHTML = "";
+
+                messages.forEach(msg => {
+                    const isMe = msg.senderId === currentUser?.uid;
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'}`;
+
+                    msgDiv.innerHTML = `
+                        <span class="text-[10px] text-slate-400 px-1">${msg.senderName}</span>
+                        <div class="max-w-[80%] rounded-2xl px-3 py-2 text-xs font-medium ${isMe ? 'bg-emerald-600 text-white rounded-tr-none' : 'bg-slate-700 text-slate-100 rounded-tl-none'}">
+                            ${msg.text}
+                        </div>
+                    `;
+                    container.appendChild(msgDiv);
+                });
+
+                container.scrollTop = container.scrollHeight;
+
+                if (!isChatOpen && messages.length > 0) {
+                    chatUnreadDot.classList.remove('hidden');
+                }
+            }, (err) => console.error("Erro chat:", err));
+        }
+
+        // Inicializar Lucide Icons
+        lucide.createIcons();
+    </script>
 </body>
 </html>
